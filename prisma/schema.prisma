@@ -1,0 +1,295 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================
+// STAGE 1 — Core Tables
+// ============================================================
+
+model User {
+  id        String   @id @default(uuid()) @db.Uuid
+  email     String   @unique
+  timezone  String   @default("America/Indiana/Indianapolis")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  profile        Profile?
+  interests      Interest[]
+  schedule       Schedule?
+  digests        Digest[]
+  emailEvents    EmailEvent[]
+  authTokens     AuthToken[]
+  articleMatches ArticleMatch[]
+  searchQueries  SearchQuery[]
+  deepDiveConfig DeepDiveConfig?
+  deepDiveTopics DeepDiveTopic[]
+  deepDiveJobs   DeepDiveJob[]
+
+  @@map("users")
+}
+
+model Profile {
+  id            String   @id @default(uuid()) @db.Uuid
+  userId        String   @unique @map("user_id") @db.Uuid
+  displayName   String?  @map("display_name")
+  roleTitle     String?  @map("role_title")
+  industryFocus String?  @map("industry_focus")
+  emailEnabled  Boolean  @default(true) @map("email_enabled")
+  paused        Boolean  @default(false)
+  depthLevel    String   @default("quick") @map("depth_level") // Stage 2: 'quick' | 'standard' | 'expanded'
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("profiles")
+}
+
+model Interest {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  section   String   // e.g. "AI", "Expertise", "Clients & Prospects"
+  label     String   // e.g. "AI in financial services"
+  type      String   // 'topic' | 'industry' | 'entity'
+  weight    Int      @default(100)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  articleMatches ArticleMatch[]
+  deepDiveTopics DeepDiveTopic[]
+
+  @@index([userId, section])
+  @@index([userId, label])
+  @@map("interests")
+}
+
+model Schedule {
+  id         String   @id @default(uuid()) @db.Uuid
+  userId     String   @unique @map("user_id") @db.Uuid
+  rrule      String   // RFC 5545 RRULE
+  nextSendAt DateTime @map("next_send_at") @db.Timestamptz
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("schedules")
+}
+
+model Source {
+  id          String  @id @default(uuid()) @db.Uuid
+  name        String
+  type        String  // 'rss'
+  url         String  @unique
+  enabled     Boolean @default(true)
+  qualityTier Int     @default(2) @map("quality_tier") // 1=highest, 2=good, 3=allowed, 9=blocked
+
+  @@map("sources")
+}
+
+model Article {
+  id           String    @id @default(uuid()) @db.Uuid
+  canonicalUrl String    @unique @map("canonical_url")
+  title        String
+  sourceName   String    @map("source_name")
+  publishedAt  DateTime? @map("published_at") @db.Timestamptz
+  fetchedAt    DateTime  @default(now()) @map("fetched_at") @db.Timestamptz
+  snippet      String?
+  accessStatus String    @default("unknown") @map("access_status") // 'ok' | 'paywalled' | 'blocked' | 'unknown'
+  contentHash  String?   @map("content_hash")
+
+  matches ArticleMatch[]
+
+  @@map("articles")
+}
+
+model ArticleMatch {
+  id         String   @id @default(uuid()) @db.Uuid
+  articleId  String   @map("article_id") @db.Uuid
+  userId     String   @map("user_id") @db.Uuid
+  interestId String   @map("interest_id") @db.Uuid
+  score      Int
+  reason     String
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  article  Article  @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  interest Interest @relation(fields: [interestId], references: [id], onDelete: Cascade)
+
+  @@index([userId, articleId])
+  @@index([userId, score(sort: Desc)])
+  @@map("article_matches")
+}
+
+model Digest {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  runDate   DateTime @map("run_date") @db.Date
+  subject   String
+  html      String
+  text      String
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  emailEvents EmailEvent[]
+
+  @@unique([userId, runDate])
+  @@map("digests")
+}
+
+model EmailEvent {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  digestId  String?  @map("digest_id") @db.Uuid
+  type      String   // 'sent' | 'bounced' | 'complaint' | 'unsubscribed'
+  payload   Json?
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  digest Digest? @relation(fields: [digestId], references: [id], onDelete: SetNull)
+
+  @@map("email_events")
+}
+
+model AuthToken {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  tokenHash String   @unique @map("token_hash")
+  scope     String   // 'prefs' | 'unsubscribe' | 'pause'
+  expiresAt DateTime @map("expires_at") @db.Timestamptz
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("auth_tokens")
+}
+
+// ============================================================
+// STAGE 2 — Web Search Tables
+// ============================================================
+
+model SourceRule {
+  id        String   @id @default(uuid()) @db.Uuid
+  pattern   String   // domain or regex pattern
+  action    String   // 'allow' | 'block'
+  reason    String
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@map("source_rules")
+}
+
+model SearchQuery {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  runDate   DateTime @map("run_date") @db.Date
+  query     String
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  user    User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  results SearchResult[]
+
+  @@map("search_queries")
+}
+
+model SearchResult {
+  id            String    @id @default(uuid()) @db.Uuid
+  searchQueryId String    @map("search_query_id") @db.Uuid
+  rank          Int
+  title         String
+  url           String
+  snippet       String?
+  sourceName    String?   @map("source_name")
+  publishedAt   DateTime? @map("published_at") @db.Timestamptz
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  searchQuery SearchQuery @relation(fields: [searchQueryId], references: [id], onDelete: Cascade)
+
+  @@unique([searchQueryId, url])
+  @@map("search_results")
+}
+
+// ============================================================
+// STAGE 3 — Deep Research Tables
+// ============================================================
+
+model DeepDiveConfig {
+  id          String   @id @default(uuid()) @db.Uuid
+  userId      String   @unique @map("user_id") @db.Uuid
+  enabled     Boolean  @default(false)
+  dayOfWeek   String   @default("FR") @map("day_of_week") // 'MO'..'SU'
+  maxSources  Int      @default(12) @map("max_sources")
+  maxSections Int      @default(6) @map("max_sections")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("deep_dive_configs")
+}
+
+model DeepDiveTopic {
+  id         String   @id @default(uuid()) @db.Uuid
+  userId     String   @map("user_id") @db.Uuid
+  interestId String   @map("interest_id") @db.Uuid
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  interest Interest @relation(fields: [interestId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, interestId])
+  @@map("deep_dive_topics")
+}
+
+model DeepDiveJob {
+  id              String   @id @default(uuid()) @db.Uuid
+  userId          String   @map("user_id") @db.Uuid
+  runWeek         DateTime @map("run_week") @db.Date // Monday of the week in user TZ
+  status          String   @default("queued") // 'queued' | 'running' | 'partial' | 'complete' | 'failed' | 'aborted'
+  topicInterestId String   @map("topic_interest_id") @db.Uuid
+  attempt         Int      @default(0)
+  state           Json     @default("{}") // DeepDiveState JSONB
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  user    User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sources DeepDiveSource[]
+  report  DeepDiveReport?
+
+  @@unique([userId, runWeek])
+  @@map("deep_dive_jobs")
+}
+
+model DeepDiveSource {
+  id            String    @id @default(uuid()) @db.Uuid
+  jobId         String    @map("job_id") @db.Uuid
+  url           String
+  title         String?
+  sourceName    String?   @map("source_name")
+  publishedAt   DateTime? @map("published_at") @db.Timestamptz
+  accessStatus  String    @default("unknown") @map("access_status") // 'ok' | 'paywalled' | 'blocked' | 'unknown'
+  extractedText String?   @map("extracted_text") // max 20k chars
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  job DeepDiveJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@unique([jobId, url])
+  @@map("deep_dive_sources")
+}
+
+model DeepDiveReport {
+  id        String   @id @default(uuid()) @db.Uuid
+  jobId     String   @unique @map("job_id") @db.Uuid
+  subject   String
+  markdown  String
+  html      String
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  job DeepDiveJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@map("deep_dive_reports")
+}

@@ -2,21 +2,27 @@
 
 :root {
   --background: #ffffff;
-  --foreground: #171717;
+  --foreground: #333333;
+  --crowe-indigo: #002D62;
+  --crowe-indigo-dark: #011E41;
+  --crowe-amber: #FDB913;
+  --crowe-amber-dark: #D7761D;
+  --crowe-tint-100: #E0E0E0;
+  --crowe-tint-300: #BDBDBD;
+  --crowe-tint-500: #828282;
+  --crowe-tint-700: #4F4F4F;
+  --crowe-tint-900: #333333;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --color-crowe-indigo: var(--crowe-indigo);
+  --color-crowe-indigo-dark: var(--crowe-indigo-dark);
+  --color-crowe-amber: var(--crowe-amber);
+  --color-crowe-amber-dark: var(--crowe-amber-dark);
+  --font-sans: Arial, Helvetica, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', Consolas, monospace;
 }
 
 body {
