@@ -22,7 +22,7 @@ type DemoStep = 'creating' | 'matching' | 'sending' | 'done' | 'no_matches' | 'e
 
 function IntakeForm() {
   const searchParams = useSearchParams();
-  const isDemo = searchParams.get('demo') === 'true';
+  const [isDemo, setIsDemo] = useState(searchParams.get('demo') === 'true');
 
   const [email, setEmail] = useState('');
   const [displayName, setDisplayName] = useState('');
@@ -107,6 +107,8 @@ function IntakeForm() {
           } else if (demoRes.ok && !demoData.emailSent) {
             setDemoStep('no_matches');
           } else {
+            const errMsg = demoData.error || 'Failed to send briefing';
+            setResult({ ok: false, error: errMsg });
             setDemoStep('error');
           }
         } catch {
@@ -219,6 +221,35 @@ function IntakeForm() {
     );
   }
 
+  // Demo mode: error — show what went wrong
+  if (isDemo && demoStep === 'error') {
+    return (
+      <div className="min-h-screen bg-[#F7F7F7] flex items-center justify-center px-4">
+        <div className="bg-white p-8 rounded-lg shadow-md max-w-md text-center">
+          <div className="w-12 h-12 mx-auto mb-4 rounded-full bg-red-100 flex items-center justify-center">
+            <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+          <h1 className="text-xl font-bold text-[var(--crowe-indigo,#002E62)] mb-2">Something went wrong</h1>
+          <p className="text-sm text-[var(--crowe-tint-700,#4F4F4F)] mb-4">
+            {result?.error || 'An unexpected error occurred while sending your briefing.'}
+          </p>
+          <button
+            onClick={() => {
+              setDemoStep(null);
+              setResult(null);
+              setSubmitting(false);
+            }}
+            className="inline-block px-6 py-2 bg-[var(--crowe-amber,#F5A800)] text-[var(--crowe-indigo,#002E62)] font-medium rounded hover:brightness-95 transition"
+          >
+            Try Again
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   // Normal mode: success screen
   if (result?.ok && !isDemo) {
     return (
@@ -250,10 +281,28 @@ function IntakeForm() {
     <div className="min-h-screen bg-[#F7F7F7] py-12 px-4">
       <div className="max-w-2xl mx-auto">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-[var(--crowe-indigo)]">Set Up Your Briefing</h1>
+          <div className="flex items-center justify-between">
+            <h1 className="text-3xl font-bold text-[var(--crowe-indigo)]">Set Up Your Briefing</h1>
+            <button
+              type="button"
+              onClick={() => setIsDemo((d) => !d)}
+              className={`px-3 py-1.5 text-xs font-medium rounded-full transition-colors ${
+                isDemo
+                  ? 'bg-[var(--crowe-amber)] text-[var(--crowe-indigo)]'
+                  : 'bg-[#F7F7F7] text-[var(--crowe-tint-500)] hover:bg-[var(--crowe-tint-100)]'
+              }`}
+            >
+              {isDemo ? 'Demo ON' : 'Demo'}
+            </button>
+          </div>
           <p className="text-[var(--crowe-tint-500)] mt-1">
             Configure your personalized digest in under 2 minutes.
           </p>
+          {isDemo && (
+            <p className="text-xs text-[var(--crowe-amber,#F5A800)] mt-2">
+              Demo mode — a sample briefing will be sent immediately on submit.
+            </p>
+          )}
         </div>
 
         {result?.error && (
@@ -432,7 +481,7 @@ function IntakeForm() {
             disabled={submitting || !email || interests.length === 0 || selectedDays.length === 0}
             className="w-full py-3 bg-[var(--crowe-amber)] text-[var(--crowe-indigo)] font-bold rounded-lg hover:brightness-95 transition disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {submitting ? 'Setting up...' : 'Start My Briefing'}
+            {submitting ? 'Setting up...' : isDemo ? 'Send Demo Briefing' : 'Start My Briefing'}
           </button>
         </form>
       </div>
