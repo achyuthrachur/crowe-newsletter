@@ -65,7 +65,7 @@ export async function runWebSearchForUser(opts: {
   let matchesCreated = 0;
 
   for (const interest of sparseInterests.slice(0, maxQueries)) {
-    const queryText = `${interest.label} news ${monthYear}`;
+    const queryText = `Latest developments in ${interest.label} — important news, regulatory updates, and industry impact ${monthYear}`;
 
     try {
       // Create SearchQuery record
@@ -84,7 +84,17 @@ export async function runWebSearchForUser(opts: {
         messages: [
           {
             role: 'system',
-            content: 'Search for recent news articles on the given topic. Return a list of the most relevant and recent articles with titles, URLs, and brief summaries.',
+            content:
+              'You are a research assistant for a professional newsletter digest. ' +
+              'Your job is to find the most important, recent, and actionable news articles on a given topic. ' +
+              'Focus on:\n' +
+              '- Breaking developments and regulatory changes\n' +
+              '- Analysis from reputable sources (Reuters, WSJ, FT, Bloomberg, industry publications)\n' +
+              '- Practical implications for professionals in accounting, advisory, tax, and financial services\n' +
+              '- Technology trends affecting professional services (AI, automation, cybersecurity)\n\n' +
+              'Avoid opinion pieces, listicles, and promotional content. ' +
+              'Prioritize articles published in the last 7 days. ' +
+              'Return 5-8 of the most relevant articles with their titles, URLs, and a one-sentence summary of why each matters.',
           },
           { role: 'user', content: queryText },
         ],
@@ -94,7 +104,7 @@ export async function runWebSearchForUser(opts: {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
           } as any,
         ],
-        max_tokens: 800,
+        max_tokens: 1200,
       });
 
       queriesRun++;

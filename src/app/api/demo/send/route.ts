@@ -3,6 +3,7 @@ import { prisma } from '@/lib/db';
 import { matchArticlesForSingleUser } from '@/services/matching/matchSingleUser';
 import { buildDigestForUser } from '@/services/digest/builder';
 import { sendEmail } from '@/services/email/sender';
+import { runWebSearchForUser } from '@/services/search/webSearch';
 
 export async function POST(request: NextRequest) {
   const body = await request.json();
@@ -13,20 +14,32 @@ export async function POST(request: NextRequest) {
 
   const { userId } = body;
 
-  // Verify user exists
+  // Verify user exists and get depth level
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    select: { id: true, email: true },
+    select: { id: true, email: true, profile: { select: { depthLevel: true } } },
   });
 
   if (!user) {
     return Response.json({ error: 'User not found' }, { status: 404 });
   }
 
-  // Step 1: Match articles against this user's interests
+  // Step 1: Run AI web search to fetch fresh articles for this user's interests
+  let webSearchResults = { queriesRun: 0, resultsFound: 0, matchesCreated: 0 };
+  try {
+    webSearchResults = await runWebSearchForUser({
+      userId,
+      depthLevel: 'expanded', // Always use expanded for demo so we get maximum coverage
+    });
+  } catch (err) {
+    // Log but don't fail — fall back to existing articles
+    console.error('Demo web search error:', err instanceof Error ? err.message : err);
+  }
+
+  // Step 2: Match all articles (web search + any existing) against interests
   const articlesMatched = await matchArticlesForSingleUser(userId);
 
-  if (articlesMatched === 0) {
+  if (articlesMatched === 0 && webSearchResults.matchesCreated === 0) {
     return Response.json({
       ok: true,
       emailSent: false,
@@ -35,11 +48,10 @@ export async function POST(request: NextRequest) {
     });
   }
 
-  // Step 2: Build digest
+  // Step 3: Build digest (force-rebuild clears cached digest)
   const today = new Date();
   today.setUTCHours(0, 0, 0, 0);
 
-  // Allow force-rebuild to clear cached digest (for testing)
   if (body.force) {
     await prisma.digest.deleteMany({ where: { userId, runDate: today } });
   }
@@ -55,7 +67,7 @@ export async function POST(request: NextRequest) {
     });
   }
 
-  // Step 3: Send email
+  // Step 4: Send email
   const digest = await prisma.digest.findUnique({ where: { id: digestId } });
 
   if (!digest) {
@@ -83,7 +95,7 @@ export async function POST(request: NextRequest) {
     }, { status: 502 });
   }
 
-  // Step 4: Record email event
+  // Step 5: Record email event
   await prisma.emailEvent.create({
     data: {
       userId,
@@ -96,5 +108,7 @@ export async function POST(request: NextRequest) {
     ok: true,
     emailSent: true,
     articlesMatched,
+    webSearchQueries: webSearchResults.queriesRun,
+    webSearchResults: webSearchResults.resultsFound,
   });
 }
