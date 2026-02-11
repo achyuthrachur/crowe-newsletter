@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Crowe Briefing',
+  title: 'Newsletter Distribution Agent',
   description: 'Preference-driven email digest with deep research capabilities',
 };
 

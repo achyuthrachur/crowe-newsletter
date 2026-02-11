@@ -6,7 +6,7 @@ export default function Home() {
       <div className="max-w-md text-center">
         <div className="mb-8">
           <h1 className="text-4xl font-bold text-[var(--crowe-indigo)] mb-2">
-            Crowe Briefing
+            Newsletter Distribution Agent
           </h1>
           <p className="text-[var(--crowe-tint-500)] text-lg">
             Your personalized intelligence digest

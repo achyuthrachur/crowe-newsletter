@@ -177,7 +177,7 @@ function PreferencesContent() {
     return (
       <div className="min-h-screen bg-[#F7F7F7] flex items-center justify-center">
         <div className="bg-white p-8 rounded-lg shadow-md max-w-md text-center">
-          <h1 className="text-xl font-bold text-[var(--crowe-indigo)] mb-4">Crowe Briefing</h1>
+          <h1 className="text-xl font-bold text-[var(--crowe-indigo)] mb-4">Newsletter Distribution Agent</h1>
           <p className="text-[var(--crowe-tint-700)]">{error}</p>
         </div>
       </div>

@@ -3,6 +3,7 @@ import { createTokenSet } from '@/lib/auth';
 import { flags } from '@/lib/flags';
 import { renderDigestEmail, renderDigestText } from '@/services/email/templates/digest';
 import { computeFeedbackAdjustments } from '@/services/feedback/scorer';
+import { generateGreeting } from '@/services/email/greeting';
 import type { DigestArticle, DigestSection, DigestData } from '@/types';
 
 const MAX_ARTICLES_PER_DIGEST = 20;
@@ -104,13 +105,22 @@ export async function buildDigestForUser(opts: {
     dateLabel,
   };
 
+  // Fetch display name for greeting
+  const profile = await prisma.profile.findUnique({
+    where: { userId },
+    select: { displayName: true },
+  });
+
+  // Generate dynamic greeting
+  const greeting = await generateGreeting(profile?.displayName);
+
   // Render email
   const appHost = process.env.APP_HOST || 'http://localhost:3000';
   const tokens = await createTokenSet(userId);
   const subject = `Briefing \u2014 ${runDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
 
-  const html = renderDigestEmail(digestData, tokens, appHost, subject);
-  const text = renderDigestText(digestData);
+  const html = renderDigestEmail(digestData, tokens, appHost, subject, greeting);
+  const text = renderDigestText(digestData, greeting);
 
   // Create digest record
   const digest = await prisma.digest.create({

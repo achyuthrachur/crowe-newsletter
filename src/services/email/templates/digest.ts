@@ -9,7 +9,8 @@ export function renderDigestEmail(
   digest: DigestData,
   tokens: AuthTokenSet,
   appHost: string,
-  subject: string
+  subject: string,
+  greeting?: string
 ): string {
   const prefsUrl = `${appHost}/prefs?token=${tokens.prefs}`;
   const pauseUrl = `${appHost}/api/pause?token=${tokens.pause}`;
@@ -45,6 +46,13 @@ export function renderDigestEmail(
           </tr>
 
           ${strapline ? `<tr><td style="padding: 24px 40px 0;">${strapline}</td></tr>` : ''}
+
+          ${greeting ? `<!-- Greeting -->
+          <tr>
+            <td style="padding: 24px 40px 0;">
+              <p style="margin: 0; font-size: 15px; color: #333333; line-height: 1.6; font-style: italic;">${escapeHtml(greeting)}</p>
+            </td>
+          </tr>` : ''}
 
           <!-- Sections -->
           ${sectionsHtml}
@@ -138,10 +146,13 @@ function renderFeedbackLinks(articleId: string, prefsToken: string, appHost: str
 /**
  * Render a plain-text version of the digest.
  */
-export function renderDigestText(digest: DigestData): string {
+export function renderDigestText(digest: DigestData, greeting?: string): string {
   const lines: string[] = [];
   lines.push(`Your Daily Briefing - ${digest.dateLabel}`);
   lines.push(`${digest.totalArticles} articles\n`);
+  if (greeting) {
+    lines.push(`${greeting}\n`);
+  }
 
   for (const section of digest.sections) {
     lines.push(`--- ${section.section} ---\n`);
