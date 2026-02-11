@@ -84,70 +84,70 @@ export async function runWebSearchForUser(opts: {
         },
       });
 
-      // Call OpenAI with web_search_preview tool
-      const maxToolCalls = parseInt(process.env.WEBSEARCH_MAX_TOOL_CALLS || '12');
-      const completion = await getOpenAI().chat.completions.create({
-        model: process.env.OPENAI_MODEL || 'gpt-4o-mini',
-        messages: [
-          {
-            role: 'system',
-            content:
-              'You are a research assistant for a professional newsletter digest. ' +
-              'Your job is to find the most important, recent, and actionable news articles on a given topic. ' +
-              'Focus on:\n' +
-              '- Breaking developments and regulatory changes\n' +
-              '- Analysis from reputable sources (Reuters, WSJ, FT, Bloomberg, industry publications)\n' +
-              '- Practical implications for professionals in accounting, advisory, tax, and financial services\n' +
-              '- Technology trends affecting professional services (AI, automation, cybersecurity)\n\n' +
-              'Avoid opinion pieces, listicles, and promotional content. ' +
-              'Prioritize articles published in the last 7 days. ' +
-              'Return 5-8 of the most relevant articles with their titles, URLs, and a one-sentence summary of why each matters.',
-          },
-          { role: 'user', content: queryText },
-        ],
-        tools: [
-          {
-            type: 'web_search_preview' as 'function',
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          } as any,
-        ],
-        max_tokens: 1200,
+      // Call OpenAI Responses API with web_search_preview tool
+      const websearchModel = process.env.WEBSEARCH_MODEL || 'gpt-4o-mini';
+      const response = await getOpenAI().responses.create({
+        model: websearchModel,
+        tools: [{ type: 'web_search_preview' }],
+        instructions:
+          'You are a research assistant for a professional newsletter digest. ' +
+          'Your job is to find the most important, recent, and actionable news articles on a given topic. ' +
+          'Focus on:\n' +
+          '- Breaking developments and regulatory changes\n' +
+          '- Analysis from reputable sources (Reuters, WSJ, FT, Bloomberg, industry publications)\n' +
+          '- Practical implications for professionals in accounting, advisory, tax, and financial services\n' +
+          '- Technology trends affecting professional services (AI, automation, cybersecurity)\n\n' +
+          'Avoid opinion pieces, listicles, and promotional content. ' +
+          'Prioritize articles published in the last 7 days. ' +
+          'Return 5-8 of the most relevant articles with their titles, URLs, and a one-sentence summary of why each matters.',
+        input: queryText,
       });
 
       queriesRun++;
 
-      // Extract URLs and article info from the response
-      const responseText = completion.choices[0]?.message?.content ?? '';
-
-      // Parse URLs from annotations if available
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const msg = completion.choices[0]?.message as any;
-      const annotations = msg?.annotations as
-        | Array<{ url?: string; title?: string; type?: string }>
-        | undefined;
-
+      // Extract articles from the Responses API output
       const searchResults: Array<{
         title: string;
         url: string;
         snippet: string;
       }> = [];
 
-      if (annotations && Array.isArray(annotations)) {
-        for (const ann of annotations) {
-          if (ann.url && ann.title) {
-            const domain = extractDomain(ann.url);
-            if (blockedPatterns.some((p) => domain.includes(p))) continue;
-            searchResults.push({
-              title: ann.title,
-              url: ann.url,
-              snippet: '',
-            });
+      // Collect text content and URL annotations from the response
+      const seenUrls = new Set<string>();
+      for (const item of response.output) {
+        if (item.type === 'message') {
+          for (const content of item.content) {
+            if (content.type === 'output_text' && content.annotations) {
+              for (const ann of content.annotations) {
+                if (ann.type === 'url_citation' && ann.url && ann.title) {
+                  if (seenUrls.has(ann.url)) continue;
+                  seenUrls.add(ann.url);
+                  const domain = extractDomain(ann.url);
+                  if (blockedPatterns.some((p) => domain.includes(p))) continue;
+                  searchResults.push({
+                    title: ann.title,
+                    url: ann.url,
+                    snippet: '',
+                  });
+                }
+              }
+            }
           }
         }
       }
 
-      // Fallback: parse URLs from response text
+      // Fallback: parse URLs from text output if no annotations found
       if (searchResults.length === 0) {
+        let responseText = '';
+        for (const item of response.output) {
+          if (item.type === 'message') {
+            for (const content of item.content) {
+              if (content.type === 'output_text') {
+                responseText += content.text;
+              }
+            }
+          }
+        }
         const urlRegex = /https?:\/\/[^\s)>\]]+/g;
         const urls = responseText.match(urlRegex) || [];
         for (const url of urls.slice(0, 5)) {
@@ -219,7 +219,6 @@ export async function runWebSearchForUser(opts: {
         matchesCreated++;
       }
 
-      void maxToolCalls; // Used as config reference
     } catch (error) {
       const errMsg = error instanceof Error ? error.message : 'Unknown';
       errors.push(`${interest.label}: ${errMsg}`);
