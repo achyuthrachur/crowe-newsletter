@@ -94,7 +94,7 @@ function IntakeForm() {
           const demoRes = await fetch('/api/demo/send', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ userId: data.userId }),
+            body: JSON.stringify({ userId: data.userId, interests }),
           });
 
           const demoData = await demoRes.json();

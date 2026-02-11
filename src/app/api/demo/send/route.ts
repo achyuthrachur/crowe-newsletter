@@ -1,9 +1,10 @@
 import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/db';
-import { matchArticlesForSingleUser } from '@/services/matching/matchSingleUser';
 import { buildDigestForUser } from '@/services/digest/builder';
 import { sendEmail } from '@/services/email/sender';
 import { runWebSearchForUser } from '@/services/search/webSearch';
+
+const DEMO_MAX_ARTICLES = 7;
 
 export async function POST(request: NextRequest) {
   const body = await request.json();
@@ -14,17 +15,30 @@ export async function POST(request: NextRequest) {
 
   const { userId } = body;
 
-  // Verify user exists and get depth level
+  // Verify user exists
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    select: { id: true, email: true, profile: { select: { depthLevel: true } } },
+    select: { id: true, email: true },
   });
 
   if (!user) {
     return Response.json({ error: 'User not found' }, { status: 404 });
   }
 
-  // Check interest count for diagnostics
+  // If interests were passed from the form, update the user's interests
+  // This handles the case where an existing user re-submits with different topics
+  if (body.interests && Array.isArray(body.interests) && body.interests.length > 0) {
+    await prisma.interest.deleteMany({ where: { userId } });
+    await prisma.interest.createMany({
+      data: body.interests.map((i: { section: string; label: string; type: string }) => ({
+        userId,
+        section: i.section,
+        label: i.label,
+        type: i.type,
+      })),
+    });
+  }
+
   const interestCount = await prisma.interest.count({ where: { userId } });
 
   // Clear old article matches so demo only shows freshly-fetched articles
@@ -36,52 +50,56 @@ export async function POST(request: NextRequest) {
   try {
     webSearchResults = await runWebSearchForUser({
       userId,
-      depthLevel: 'expanded', // Always use expanded for demo so we get maximum coverage
-      forceSearch: true, // Skip sparseness check — always fetch fresh articles
+      depthLevel: 'expanded',
+      forceSearch: true,
     });
   } catch (err) {
     webSearchError = err instanceof Error ? err.message : String(err);
     console.error('Demo web search error:', webSearchError);
   }
 
-  // Step 2: Match all articles (web search + any existing) against interests
-  const articlesMatched = await matchArticlesForSingleUser(userId);
-
-  if (articlesMatched === 0 && webSearchResults.matchesCreated === 0) {
+  if (webSearchResults.matchesCreated === 0) {
     return Response.json({
       ok: true,
       emailSent: false,
       articlesMatched: 0,
       reason: 'no_matches',
+      interestCount,
+      ...(webSearchError && { webSearchError }),
+      ...(webSearchResults.errors.length > 0 && { webSearchErrors: webSearchResults.errors }),
     });
   }
 
-  // Step 3: Build digest (force-rebuild clears cached digest)
+  // Step 2: Build digest from fresh web search results only
   const today = new Date();
   today.setUTCHours(0, 0, 0, 0);
 
-  // Always rebuild digest in demo mode since we just fetched fresh articles
+  // Always rebuild digest in demo mode
   await prisma.digest.deleteMany({ where: { userId, runDate: today } });
 
-  const digestId = await buildDigestForUser({ userId, runDate: today });
+  const digestId = await buildDigestForUser({
+    userId,
+    runDate: today,
+    maxArticles: DEMO_MAX_ARTICLES,
+  });
 
   if (!digestId) {
     return Response.json({
       ok: true,
       emailSent: false,
-      articlesMatched,
+      articlesMatched: webSearchResults.matchesCreated,
       reason: 'no_digest',
     });
   }
 
-  // Step 4: Send email
+  // Step 3: Send email
   const digest = await prisma.digest.findUnique({ where: { id: digestId } });
 
   if (!digest) {
     return Response.json({
       ok: true,
       emailSent: false,
-      articlesMatched,
+      articlesMatched: webSearchResults.matchesCreated,
       reason: 'digest_not_found',
     });
   }
@@ -98,11 +116,11 @@ export async function POST(request: NextRequest) {
     return Response.json({
       ok: false,
       error: `Email send failed: ${message}`,
-      articlesMatched,
+      articlesMatched: webSearchResults.matchesCreated,
     }, { status: 502 });
   }
 
-  // Step 5: Record email event
+  // Step 4: Record email event
   await prisma.emailEvent.create({
     data: {
       userId,
@@ -114,7 +132,7 @@ export async function POST(request: NextRequest) {
   return Response.json({
     ok: true,
     emailSent: true,
-    articlesMatched,
+    articlesMatched: webSearchResults.matchesCreated,
     webSearchQueries: webSearchResults.queriesRun,
     webSearchResults: webSearchResults.resultsFound,
     interestCount,

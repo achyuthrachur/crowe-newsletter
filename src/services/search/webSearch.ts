@@ -86,49 +86,46 @@ export async function runWebSearchForUser(opts: {
 
       // Call OpenAI Responses API with web_search_preview tool
       const websearchModel = process.env.WEBSEARCH_MODEL || 'gpt-4o-mini';
+      const maxResultsPerInterest = parseInt(process.env.WEBSEARCH_RESULTS_PER_QUERY || '5');
       const response = await getOpenAI().responses.create({
         model: websearchModel,
         tools: [{ type: 'web_search_preview' }],
         instructions:
           'You are a research assistant for a professional newsletter digest. ' +
-          'Your job is to find the most important, recent, and actionable news articles on a given topic. ' +
+          'Find the most important, recent, and actionable news on the given topic.\n\n' +
           'Focus on:\n' +
           '- Breaking developments and regulatory changes\n' +
           '- Analysis from reputable sources (Reuters, WSJ, FT, Bloomberg, industry publications)\n' +
-          '- Practical implications for professionals in accounting, advisory, tax, and financial services\n' +
-          '- Technology trends affecting professional services (AI, automation, cybersecurity)\n\n' +
+          '- Practical implications for professionals\n' +
+          '- Technology trends affecting professional services\n\n' +
+          'For each article, write 2-3 sentences explaining what happened and why it matters. ' +
           'Avoid opinion pieces, listicles, and promotional content. ' +
-          'Prioritize articles published in the last 7 days. ' +
-          'Return 5-8 of the most relevant articles with their titles, URLs, and a one-sentence summary of why each matters.',
+          'Prioritize articles from the last 7 days. ' +
+          `Return exactly ${maxResultsPerInterest} articles, each with a clear summary paragraph followed by its source link.`,
         input: queryText,
       });
 
       queriesRun++;
 
-      // Extract articles from the Responses API output
-      const searchResults: Array<{
-        title: string;
-        url: string;
-        snippet: string;
-      }> = [];
+      // Extract full response text and annotations
+      let fullText = '';
+      const allAnnotations: Array<{ url: string; title: string; start_index: number; end_index: number }> = [];
 
-      // Collect text content and URL annotations from the response
-      const seenUrls = new Set<string>();
       for (const item of response.output) {
         if (item.type === 'message') {
           for (const content of item.content) {
-            if (content.type === 'output_text' && content.annotations) {
-              for (const ann of content.annotations) {
-                if (ann.type === 'url_citation' && ann.url && ann.title) {
-                  if (seenUrls.has(ann.url)) continue;
-                  seenUrls.add(ann.url);
-                  const domain = extractDomain(ann.url);
-                  if (blockedPatterns.some((p) => domain.includes(p))) continue;
-                  searchResults.push({
-                    title: ann.title,
-                    url: ann.url,
-                    snippet: '',
-                  });
+            if (content.type === 'output_text') {
+              fullText += content.text;
+              if (content.annotations) {
+                for (const ann of content.annotations) {
+                  if (ann.type === 'url_citation' && ann.url && ann.title) {
+                    allAnnotations.push({
+                      url: ann.url,
+                      title: ann.title,
+                      start_index: ann.start_index,
+                      end_index: ann.end_index,
+                    });
+                  }
                 }
               }
             }
@@ -136,25 +133,59 @@ export async function runWebSearchForUser(opts: {
         }
       }
 
-      // Fallback: parse URLs from text output if no annotations found
-      if (searchResults.length === 0) {
-        let responseText = '';
-        for (const item of response.output) {
-          if (item.type === 'message') {
-            for (const content of item.content) {
-              if (content.type === 'output_text') {
-                responseText += content.text;
-              }
-            }
-          }
+      // Deduplicate annotations and extract snippets from surrounding text
+      const searchResults: Array<{ title: string; url: string; snippet: string }> = [];
+      const seenUrls = new Set<string>();
+
+      // Sort annotations by position in text
+      allAnnotations.sort((a, b) => a.start_index - b.start_index);
+
+      for (let ai = 0; ai < allAnnotations.length; ai++) {
+        const ann = allAnnotations[ai];
+        if (seenUrls.has(ann.url)) continue;
+        seenUrls.add(ann.url);
+
+        const domain = extractDomain(ann.url);
+        if (blockedPatterns.some((p) => domain.includes(p))) continue;
+
+        // Extract snippet: look backwards from the citation to find the paragraph
+        const textBefore = fullText.slice(0, ann.start_index);
+        // Find the start of the current section/paragraph (look for double newline or numbered list item)
+        const paragraphBreak = Math.max(
+          textBefore.lastIndexOf('\n\n'),
+          textBefore.lastIndexOf('\n1.'),
+          textBefore.lastIndexOf('\n2.'),
+          textBefore.lastIndexOf('\n3.'),
+          textBefore.lastIndexOf('\n4.'),
+          textBefore.lastIndexOf('\n5.'),
+          textBefore.lastIndexOf('\n6.'),
+          textBefore.lastIndexOf('\n7.'),
+          textBefore.lastIndexOf('\n**'),
+        );
+        const snippetStart = paragraphBreak >= 0 ? paragraphBreak : Math.max(0, ann.start_index - 300);
+        let snippet = fullText.slice(snippetStart, ann.start_index).trim();
+
+        // Clean up: remove markdown formatting, list markers, and citation brackets
+        snippet = snippet
+          .replace(/^\d+\.\s*/, '')       // Remove leading "1. "
+          .replace(/\*\*/g, '')           // Remove bold markers
+          .replace(/\[.*?\]/g, '')        // Remove [citation] brackets
+          .replace(/^[-•]\s*/, '')        // Remove bullet points
+          .trim();
+
+        // Limit to ~2-3 sentences
+        const sentences = snippet.match(/[^.!?]+[.!?]+/g) || [];
+        if (sentences.length > 3) {
+          snippet = sentences.slice(-3).join(' ').trim();
         }
-        const urlRegex = /https?:\/\/[^\s)>\]]+/g;
-        const urls = responseText.match(urlRegex) || [];
-        for (const url of urls.slice(0, 5)) {
-          const domain = extractDomain(url);
-          if (blockedPatterns.some((p) => domain.includes(p))) continue;
-          searchResults.push({ title: '', url, snippet: '' });
-        }
+
+        if (searchResults.length >= maxResultsPerInterest) break;
+
+        searchResults.push({
+          title: ann.title,
+          url: ann.url,
+          snippet,
+        });
       }
 
       // Store search results and create articles/matches
@@ -199,6 +230,12 @@ export async function runWebSearchForUser(opts: {
               where: { canonicalUrl: canonical },
             });
           }
+        } else if (sr.snippet && !article.snippet) {
+          // Update existing article with snippet if it was missing
+          await prisma.article.update({
+            where: { id: article.id },
+            data: { snippet: sr.snippet },
+          }).catch(() => {});
         }
 
         if (!article) continue;
