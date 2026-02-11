@@ -27,6 +27,9 @@ export async function POST(request: NextRequest) {
   // Check interest count for diagnostics
   const interestCount = await prisma.interest.count({ where: { userId } });
 
+  // Clear old article matches so demo only shows freshly-fetched articles
+  await prisma.articleMatch.deleteMany({ where: { userId } });
+
   // Step 1: Run AI web search to fetch fresh articles for this user's interests
   let webSearchResults = { queriesRun: 0, resultsFound: 0, matchesCreated: 0, errors: [] as string[] };
   let webSearchError: string | undefined;
