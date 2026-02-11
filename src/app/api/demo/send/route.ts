@@ -39,6 +39,11 @@ export async function POST(request: NextRequest) {
   const today = new Date();
   today.setUTCHours(0, 0, 0, 0);
 
+  // Allow force-rebuild to clear cached digest (for testing)
+  if (body.force) {
+    await prisma.digest.deleteMany({ where: { userId, runDate: today } });
+  }
+
   const digestId = await buildDigestForUser({ userId, runDate: today });
 
   if (!digestId) {
@@ -62,12 +67,21 @@ export async function POST(request: NextRequest) {
     });
   }
 
-  await sendEmail({
-    to: user.email,
-    subject: digest.subject,
-    html: digest.html,
-    text: digest.text,
-  });
+  try {
+    await sendEmail({
+      to: user.email,
+      subject: digest.subject,
+      html: digest.html,
+      text: digest.text,
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Unknown email error';
+    return Response.json({
+      ok: false,
+      error: `Email send failed: ${message}`,
+      articlesMatched,
+    }, { status: 502 });
+  }
 
   // Step 4: Record email event
   await prisma.emailEvent.create({
