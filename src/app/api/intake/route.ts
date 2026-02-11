@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/db';
 import { createTokenSet } from '@/lib/auth';
+import { buildRrule, computeNextSend } from '@/lib/rrule';
 
 export async function POST(request: NextRequest) {
   const body = await request.json();
@@ -31,6 +32,7 @@ export async function POST(request: NextRequest) {
     const appHost = process.env.APP_HOST || 'http://localhost:3000';
     return Response.json({
       ok: true,
+      userId: existing.id,
       prefsUrl: `${appHost}/prefs?token=${tokens.prefs}`,
       message: 'Account already exists. Use the preferences link to update.',
     });
@@ -40,7 +42,7 @@ export async function POST(request: NextRequest) {
   const days = body.schedule.days as string[];
   const hour = body.schedule.hour ?? 6;
   const minute = body.schedule.minute ?? 0;
-  const rrule = `FREQ=WEEKLY;BYDAY=${days.join(',')};BYHOUR=${hour};BYMINUTE=${minute};BYSECOND=0`;
+  const rrule = buildRrule(days, hour, minute);
 
   // Compute next send time
   const nextSendAt = computeNextSend(days, hour, minute);
@@ -81,43 +83,8 @@ export async function POST(request: NextRequest) {
 
   return Response.json({
     ok: true,
+    userId: user.id,
     prefsUrl: `${appHost}/prefs?token=${tokens.prefs}`,
   });
 }
 
-function computeNextSend(days: string[], hour: number, minute: number): Date {
-  const dayMap: Record<string, number> = {
-    SU: 0, MO: 1, TU: 2, WE: 3, TH: 4, FR: 5, SA: 6,
-  };
-
-  const now = new Date();
-  const targetDays = days.map((d) => dayMap[d]).filter((d) => d !== undefined).sort();
-
-  if (targetDays.length === 0) {
-    const next = new Date(now);
-    next.setDate(next.getDate() + 1);
-    next.setHours(hour, minute, 0, 0);
-    return next;
-  }
-
-  const currentDay = now.getDay();
-  const currentMinutes = now.getHours() * 60 + now.getMinutes();
-  const targetMinutes = hour * 60 + minute;
-
-  for (let offset = 0; offset < 7; offset++) {
-    const candidateDay = (currentDay + offset) % 7;
-    if (targetDays.includes(candidateDay)) {
-      if (offset === 0 && currentMinutes >= targetMinutes) continue;
-      const next = new Date(now);
-      next.setDate(next.getDate() + offset);
-      next.setHours(hour, minute, 0, 0);
-      return next;
-    }
-  }
-
-  const next = new Date(now);
-  const daysUntil = (targetDays[0] - currentDay + 7) % 7 || 7;
-  next.setDate(next.getDate() + daysUntil);
-  next.setHours(hour, minute, 0, 0);
-  return next;
-}

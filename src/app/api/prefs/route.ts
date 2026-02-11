@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/db';
 import { validateAuthToken } from '@/lib/auth';
+import { parseRrule, buildRrule, computeNextSend } from '@/lib/rrule';
 
 export async function GET(request: NextRequest) {
   const token = request.nextUrl.searchParams.get('token');
@@ -169,67 +170,3 @@ export async function PUT(request: NextRequest) {
   return Response.json({ ok: true });
 }
 
-// ─── Helpers ───────────────────────────────────────────
-
-function parseRrule(rrule: string): { days: string[]; hour: number; minute: number } {
-  const days: string[] = [];
-  let hour = 6;
-  let minute = 0;
-
-  const byDayMatch = rrule.match(/BYDAY=([^;]+)/);
-  if (byDayMatch) {
-    days.push(...byDayMatch[1].split(','));
-  }
-
-  const byHourMatch = rrule.match(/BYHOUR=(\d+)/);
-  if (byHourMatch) hour = parseInt(byHourMatch[1]);
-
-  const byMinuteMatch = rrule.match(/BYMINUTE=(\d+)/);
-  if (byMinuteMatch) minute = parseInt(byMinuteMatch[1]);
-
-  return { days, hour, minute };
-}
-
-function buildRrule(days: string[], hour: number, minute: number): string {
-  return `FREQ=WEEKLY;BYDAY=${days.join(',')};BYHOUR=${hour};BYMINUTE=${minute};BYSECOND=0`;
-}
-
-function computeNextSend(days: string[], hour: number, minute: number): Date {
-  const dayMap: Record<string, number> = {
-    SU: 0, MO: 1, TU: 2, WE: 3, TH: 4, FR: 5, SA: 6,
-  };
-
-  const now = new Date();
-  const targetDays = days.map((d) => dayMap[d]).filter((d) => d !== undefined).sort();
-
-  if (targetDays.length === 0) {
-    // Default to tomorrow
-    const next = new Date(now);
-    next.setDate(next.getDate() + 1);
-    next.setHours(hour, minute, 0, 0);
-    return next;
-  }
-
-  const currentDay = now.getDay();
-  const currentMinutes = now.getHours() * 60 + now.getMinutes();
-  const targetMinutes = hour * 60 + minute;
-
-  // Find next occurrence
-  for (let offset = 0; offset < 7; offset++) {
-    const candidateDay = (currentDay + offset) % 7;
-    if (targetDays.includes(candidateDay)) {
-      if (offset === 0 && currentMinutes >= targetMinutes) continue;
-      const next = new Date(now);
-      next.setDate(next.getDate() + offset);
-      next.setHours(hour, minute, 0, 0);
-      return next;
-    }
-  }
-
-  // Wrap around: first target day next week
-  const next = new Date(now);
-  const daysUntil = (targetDays[0] - currentDay + 7) % 7 || 7;
-  next.setDate(next.getDate() + daysUntil);
-  next.setHours(hour, minute, 0, 0);
-  return next;
-}

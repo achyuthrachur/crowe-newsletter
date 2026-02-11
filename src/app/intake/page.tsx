@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 
 interface InterestInput {
   section: string;
@@ -17,7 +18,12 @@ const DAYS = [
   { code: 'FR', label: 'Fri' },
 ];
 
-export default function IntakePage() {
+type DemoStep = 'creating' | 'matching' | 'sending' | 'done' | 'no_matches' | 'error';
+
+function IntakeForm() {
+  const searchParams = useSearchParams();
+  const isDemo = searchParams.get('demo') === 'true';
+
   const [email, setEmail] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [roleTitle, setRoleTitle] = useState('');
@@ -32,6 +38,7 @@ export default function IntakePage() {
 
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<{ ok: boolean; prefsUrl?: string; error?: string } | null>(null);
+  const [demoStep, setDemoStep] = useState<DemoStep | null>(null);
 
   const addInterest = () => {
     if (!newLabel.trim()) return;
@@ -54,6 +61,8 @@ export default function IntakePage() {
     if (!email || interests.length === 0 || selectedDays.length === 0) return;
 
     setSubmitting(true);
+    if (isDemo) setDemoStep('creating');
+
     try {
       const res = await fetch('/api/intake', {
         method: 'POST',
@@ -70,18 +79,148 @@ export default function IntakePage() {
       });
 
       const data = await res.json();
-      if (res.ok) {
-        setResult({ ok: true, prefsUrl: data.prefsUrl });
-      } else {
+      if (!res.ok) {
         setResult({ ok: false, error: data.error || 'Something went wrong.' });
+        if (isDemo) setDemoStep('error');
+        setSubmitting(false);
+        return;
       }
+
+      // In demo mode, trigger the immediate send pipeline
+      if (isDemo && data.userId) {
+        setDemoStep('matching');
+
+        try {
+          const demoRes = await fetch('/api/demo/send', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId: data.userId }),
+          });
+
+          const demoData = await demoRes.json();
+
+          if (demoRes.ok && demoData.emailSent) {
+            setDemoStep('sending');
+            // Brief pause so the user sees the "sending" step
+            await new Promise((r) => setTimeout(r, 800));
+            setDemoStep('done');
+          } else if (demoRes.ok && !demoData.emailSent) {
+            setDemoStep('no_matches');
+          } else {
+            setDemoStep('error');
+          }
+        } catch {
+          setDemoStep('error');
+        }
+
+        setResult({ ok: true, prefsUrl: data.prefsUrl });
+        setSubmitting(false);
+        return;
+      }
+
+      // Normal (non-demo) mode
+      setResult({ ok: true, prefsUrl: data.prefsUrl });
     } catch {
       setResult({ ok: false, error: 'Network error. Please try again.' });
+      if (isDemo) setDemoStep('error');
     }
     setSubmitting(false);
   };
 
-  if (result?.ok) {
+  // Demo mode: show progress overlay while pipeline runs
+  if (isDemo && demoStep && demoStep !== 'done' && demoStep !== 'no_matches' && demoStep !== 'error' && submitting) {
+    const stepLabels: Record<string, string> = {
+      creating: 'Creating account...',
+      matching: 'Matching articles to your interests...',
+      sending: 'Sending your first briefing...',
+    };
+
+    return (
+      <div className="min-h-screen bg-[#F7F7F7] flex items-center justify-center px-4">
+        <div className="bg-white p-8 rounded-lg shadow-md max-w-md text-center">
+          <div className="w-12 h-12 mx-auto mb-4 rounded-full bg-[var(--crowe-indigo-dark,#011E41)] flex items-center justify-center">
+            <svg className="w-6 h-6 text-[var(--crowe-amber,#F5A800)] animate-spin" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+            </svg>
+          </div>
+          <p className="text-lg font-medium text-[var(--crowe-indigo,#002E62)]">
+            {stepLabels[demoStep] || 'Processing...'}
+          </p>
+          <div className="flex justify-center gap-2 mt-4">
+            {['creating', 'matching', 'sending'].map((step) => (
+              <div
+                key={step}
+                className={`h-1.5 w-8 rounded-full transition-colors ${
+                  ['creating', 'matching', 'sending'].indexOf(demoStep) >=
+                  ['creating', 'matching', 'sending'].indexOf(step)
+                    ? 'bg-[var(--crowe-amber,#F5A800)]'
+                    : 'bg-[var(--crowe-tint-100,#E0E0E0)]'
+                }`}
+              />
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Demo mode: success — email sent
+  if (isDemo && demoStep === 'done') {
+    return (
+      <div className="min-h-screen bg-[#F7F7F7] flex items-center justify-center px-4">
+        <div className="bg-white p-8 rounded-lg shadow-md max-w-md text-center">
+          <div className="w-12 h-12 mx-auto mb-4 rounded-full bg-[var(--crowe-amber,#F5A800)] flex items-center justify-center">
+            <svg className="w-6 h-6 text-[var(--crowe-indigo,#002E62)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+            </svg>
+          </div>
+          <h1 className="text-xl font-bold text-[var(--crowe-indigo,#002E62)] mb-2">Check your inbox!</h1>
+          <p className="text-[var(--crowe-tint-700,#4F4F4F)] mb-4">
+            Your first briefing is on its way.
+          </p>
+          {result?.prefsUrl && (
+            <a
+              href={result.prefsUrl}
+              className="inline-block px-6 py-2 bg-[var(--crowe-amber,#F5A800)] text-[var(--crowe-indigo,#002E62)] font-medium rounded hover:brightness-95 transition"
+            >
+              Update Preferences
+            </a>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // Demo mode: no matches fallback
+  if (isDemo && demoStep === 'no_matches') {
+    return (
+      <div className="min-h-screen bg-[#F7F7F7] flex items-center justify-center px-4">
+        <div className="bg-white p-8 rounded-lg shadow-md max-w-md text-center">
+          <div className="w-12 h-12 mx-auto mb-4 rounded-full bg-[var(--crowe-amber,#F5A800)] flex items-center justify-center">
+            <svg className="w-6 h-6 text-[var(--crowe-indigo,#002E62)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            </svg>
+          </div>
+          <h1 className="text-xl font-bold text-[var(--crowe-indigo,#002E62)] mb-2">You&apos;re all set</h1>
+          <p className="text-[var(--crowe-tint-700,#4F4F4F)] mb-4">
+            Your regular briefings will arrive on your next scheduled delivery day.
+          </p>
+          {result?.prefsUrl && (
+            <a
+              href={result.prefsUrl}
+              className="inline-block px-6 py-2 bg-[var(--crowe-amber,#F5A800)] text-[var(--crowe-indigo,#002E62)] font-medium rounded hover:brightness-95 transition"
+            >
+              Update Preferences
+            </a>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // Normal mode: success screen
+  if (result?.ok && !isDemo) {
     return (
       <div className="min-h-screen bg-[#F7F7F7] flex items-center justify-center px-4">
         <div className="bg-white p-8 rounded-lg shadow-md max-w-md text-center">
@@ -90,7 +229,7 @@ export default function IntakePage() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
             </svg>
           </div>
-          <h1 className="text-xl font-bold text-[var(--crowe-indigo)] mb-2">You're all set</h1>
+          <h1 className="text-xl font-bold text-[var(--crowe-indigo)] mb-2">You&apos;re all set</h1>
           <p className="text-[var(--crowe-tint-700)] mb-4">
             Your briefing will arrive on your selected days.
           </p>
@@ -298,5 +437,13 @@ export default function IntakePage() {
         </form>
       </div>
     </div>
+  );
+}
+
+export default function IntakePage() {
+  return (
+    <Suspense>
+      <IntakeForm />
+    </Suspense>
   );
 }

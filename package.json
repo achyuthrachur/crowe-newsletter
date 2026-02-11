@@ -10,7 +10,8 @@
     "postinstall": "prisma generate",
     "smoke": "npx tsx scripts/smoke.ts",
     "db:push": "prisma db push",
-    "db:seed": "npx tsx prisma/seed.ts"
+    "db:seed": "npx tsx prisma/seed.ts",
+    "db:seed:pg": "npx tsx scripts/seed-pg.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.19.2",

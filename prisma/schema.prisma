@@ -3,8 +3,9 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 // ============================================================
@@ -18,17 +19,18 @@ model User {
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
-  profile        Profile?
-  interests      Interest[]
-  schedule       Schedule?
-  digests        Digest[]
-  emailEvents    EmailEvent[]
-  authTokens     AuthToken[]
-  articleMatches ArticleMatch[]
-  searchQueries  SearchQuery[]
-  deepDiveConfig DeepDiveConfig?
-  deepDiveTopics DeepDiveTopic[]
-  deepDiveJobs   DeepDiveJob[]
+  profile         Profile?
+  interests       Interest[]
+  schedule        Schedule?
+  digests         Digest[]
+  emailEvents     EmailEvent[]
+  authTokens      AuthToken[]
+  articleMatches  ArticleMatch[]
+  articleFeedback ArticleFeedback[]
+  searchQueries   SearchQuery[]
+  deepDiveConfig  DeepDiveConfig?
+  deepDiveTopics  DeepDiveTopic[]
+  deepDiveJobs    DeepDiveJob[]
 
   @@map("users")
 }
@@ -103,7 +105,8 @@ model Article {
   accessStatus String    @default("unknown") @map("access_status") // 'ok' | 'paywalled' | 'blocked' | 'unknown'
   contentHash  String?   @map("content_hash")
 
-  matches ArticleMatch[]
+  matches  ArticleMatch[]
+  feedback ArticleFeedback[]
 
   @@map("articles")
 }
@@ -211,6 +214,25 @@ model SearchResult {
 
   @@unique([searchQueryId, url])
   @@map("search_results")
+}
+
+// ============================================================
+// STAGE 4 — Feedback & Personalization
+// ============================================================
+
+model ArticleFeedback {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  articleId String   @map("article_id") @db.Uuid
+  rating    String   // 'up' | 'down'
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  article Article @relation(fields: [articleId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, articleId])
+  @@index([userId, createdAt])
+  @@map("article_feedback")
 }
 
 // ============================================================

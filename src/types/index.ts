@@ -1,4 +1,65 @@
 // ============================================================
+// Stage 1 — Daily Digest Types
+// ============================================================
+
+export interface DigestArticle {
+  articleId: string;
+  title: string;
+  url: string;
+  sourceName: string;
+  snippet: string;
+  score: number;
+  interestLabel: string;
+  interestSection: string;
+}
+
+export interface DigestSection {
+  section: string;
+  articles: DigestArticle[];
+}
+
+export interface DigestData {
+  sections: DigestSection[];
+  totalArticles: number;
+  dateLabel: string;
+}
+
+export interface CollectSourcesResult {
+  feedsFetched: number;
+  articlesInserted: number;
+  matchesCreated: number;
+  elapsed: number;
+}
+
+export interface BuildDigestsResult {
+  digestsBuilt: number;
+  elapsed: number;
+}
+
+export interface SendEmailsResult {
+  emailsSent: number;
+  errors: number;
+  elapsed: number;
+}
+
+// ============================================================
+// Stage 2 — Web Search Types
+// ============================================================
+
+export interface WebSearchResult {
+  queriesRun: number;
+  resultsFound: number;
+  matchesCreated: number;
+  elapsed: number;
+}
+
+// ============================================================
+// Stage 4 — Feedback Types
+// ============================================================
+
+export type FeedbackRating = 'up' | 'down';
+
+// ============================================================
 // Stage 3 — Deep Dive Types
 // ============================================================
 
@@ -59,6 +120,9 @@ export interface DailyTickResult {
   emailsSent: number;
   digestsBuilt: number;
   deepDiveJobsAdvanced: number;
+  articlesCollected: number;
+  matchesCreated: number;
+  webSearchQueries: number;
 }
 
 // ============================================================
