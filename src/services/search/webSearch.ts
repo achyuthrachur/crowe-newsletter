@@ -15,13 +15,13 @@ export async function runWebSearchForUser(opts: {
   userId: string;
   depthLevel: string;
   forceSearch?: boolean;
-}): Promise<{ queriesRun: number; resultsFound: number; matchesCreated: number }> {
+}): Promise<{ queriesRun: number; resultsFound: number; matchesCreated: number; errors: string[] }> {
   const { userId, depthLevel, forceSearch = false } = opts;
 
   // Determine max queries based on depth level
   const maxQueriesDefault = parseInt(process.env.WEBSEARCH_MAX_QUERIES_PER_USER || '8');
   let maxQueries: number;
-  if (!forceSearch && depthLevel === 'quick') return { queriesRun: 0, resultsFound: 0, matchesCreated: 0 };
+  if (!forceSearch && depthLevel === 'quick') return { queriesRun: 0, resultsFound: 0, matchesCreated: 0, errors: [] };
   else if (depthLevel === 'standard') maxQueries = Math.min(4, maxQueriesDefault);
   else maxQueries = maxQueriesDefault; // expanded
 
@@ -30,7 +30,7 @@ export async function runWebSearchForUser(opts: {
     where: { userId },
   });
 
-  if (interests.length === 0) return { queriesRun: 0, resultsFound: 0, matchesCreated: 0 };
+  if (interests.length === 0) return { queriesRun: 0, resultsFound: 0, matchesCreated: 0, errors: [] };
 
   // In force mode, search all interests. Otherwise, only sparse ones (< 3 matches in 24h).
   let targetInterests = interests;
@@ -51,7 +51,7 @@ export async function runWebSearchForUser(opts: {
       if (matchCount < 3) sparseInterests.push(interest);
     }
 
-    if (sparseInterests.length === 0) return { queriesRun: 0, resultsFound: 0, matchesCreated: 0 };
+    if (sparseInterests.length === 0) return { queriesRun: 0, resultsFound: 0, matchesCreated: 0, errors: [] };
     targetInterests = sparseInterests;
   }
 
@@ -69,6 +69,7 @@ export async function runWebSearchForUser(opts: {
   let queriesRun = 0;
   let resultsFound = 0;
   let matchesCreated = 0;
+  const errors: string[] = [];
 
   for (const interest of targetInterests.slice(0, maxQueries)) {
     const queryText = `Latest developments in ${interest.label} — important news, regulatory updates, and industry impact ${monthYear}`;
@@ -220,12 +221,14 @@ export async function runWebSearchForUser(opts: {
 
       void maxToolCalls; // Used as config reference
     } catch (error) {
+      const errMsg = error instanceof Error ? error.message : 'Unknown';
+      errors.push(`${interest.label}: ${errMsg}`);
       logDailyTick('web_search_query_error', {
         interest: interest.label,
-        error: error instanceof Error ? error.message : 'Unknown',
+        error: errMsg,
       });
     }
   }
 
-  return { queriesRun, resultsFound, matchesCreated };
+  return { queriesRun, resultsFound, matchesCreated, errors };
 }

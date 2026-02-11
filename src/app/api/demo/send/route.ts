@@ -28,7 +28,7 @@ export async function POST(request: NextRequest) {
   const interestCount = await prisma.interest.count({ where: { userId } });
 
   // Step 1: Run AI web search to fetch fresh articles for this user's interests
-  let webSearchResults = { queriesRun: 0, resultsFound: 0, matchesCreated: 0 };
+  let webSearchResults = { queriesRun: 0, resultsFound: 0, matchesCreated: 0, errors: [] as string[] };
   let webSearchError: string | undefined;
   try {
     webSearchResults = await runWebSearchForUser({
@@ -116,5 +116,6 @@ export async function POST(request: NextRequest) {
     webSearchResults: webSearchResults.resultsFound,
     interestCount,
     ...(webSearchError && { webSearchError }),
+    ...(webSearchResults.errors.length > 0 && { webSearchErrors: webSearchResults.errors }),
   });
 }
