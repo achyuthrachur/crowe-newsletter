@@ -26,6 +26,7 @@ export async function POST(request: NextRequest) {
 
   // Step 1: Run AI web search to fetch fresh articles for this user's interests
   let webSearchResults = { queriesRun: 0, resultsFound: 0, matchesCreated: 0 };
+  let webSearchError: string | undefined;
   try {
     webSearchResults = await runWebSearchForUser({
       userId,
@@ -33,8 +34,8 @@ export async function POST(request: NextRequest) {
       forceSearch: true, // Skip sparseness check — always fetch fresh articles
     });
   } catch (err) {
-    // Log but don't fail — fall back to existing articles
-    console.error('Demo web search error:', err instanceof Error ? err.message : err);
+    webSearchError = err instanceof Error ? err.message : String(err);
+    console.error('Demo web search error:', webSearchError);
   }
 
   // Step 2: Match all articles (web search + any existing) against interests
@@ -110,5 +111,6 @@ export async function POST(request: NextRequest) {
     articlesMatched,
     webSearchQueries: webSearchResults.queriesRun,
     webSearchResults: webSearchResults.resultsFound,
+    ...(webSearchError && { webSearchError }),
   });
 }
