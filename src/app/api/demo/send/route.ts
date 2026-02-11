@@ -24,6 +24,9 @@ export async function POST(request: NextRequest) {
     return Response.json({ error: 'User not found' }, { status: 404 });
   }
 
+  // Check interest count for diagnostics
+  const interestCount = await prisma.interest.count({ where: { userId } });
+
   // Step 1: Run AI web search to fetch fresh articles for this user's interests
   let webSearchResults = { queriesRun: 0, resultsFound: 0, matchesCreated: 0 };
   let webSearchError: string | undefined;
@@ -111,6 +114,7 @@ export async function POST(request: NextRequest) {
     articlesMatched,
     webSearchQueries: webSearchResults.queriesRun,
     webSearchResults: webSearchResults.resultsFound,
+    interestCount,
     ...(webSearchError && { webSearchError }),
   });
 }
