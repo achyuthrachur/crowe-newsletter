@@ -14,13 +14,14 @@ function getOpenAI(): OpenAI {
 export async function runWebSearchForUser(opts: {
   userId: string;
   depthLevel: string;
+  forceSearch?: boolean;
 }): Promise<{ queriesRun: number; resultsFound: number; matchesCreated: number }> {
-  const { userId, depthLevel } = opts;
+  const { userId, depthLevel, forceSearch = false } = opts;
 
   // Determine max queries based on depth level
   const maxQueriesDefault = parseInt(process.env.WEBSEARCH_MAX_QUERIES_PER_USER || '8');
   let maxQueries: number;
-  if (depthLevel === 'quick') return { queriesRun: 0, resultsFound: 0, matchesCreated: 0 };
+  if (!forceSearch && depthLevel === 'quick') return { queriesRun: 0, resultsFound: 0, matchesCreated: 0 };
   else if (depthLevel === 'standard') maxQueries = Math.min(4, maxQueriesDefault);
   else maxQueries = maxQueriesDefault; // expanded
 
@@ -31,23 +32,28 @@ export async function runWebSearchForUser(opts: {
 
   if (interests.length === 0) return { queriesRun: 0, resultsFound: 0, matchesCreated: 0 };
 
-  // Check which interests are sparse (< 3 matches in last 24h)
-  const oneDayAgo = new Date();
-  oneDayAgo.setDate(oneDayAgo.getDate() - 1);
+  // In force mode, search all interests. Otherwise, only sparse ones (< 3 matches in 24h).
+  let targetInterests = interests;
 
-  const sparseInterests: typeof interests = [];
-  for (const interest of interests) {
-    const matchCount = await prisma.articleMatch.count({
-      where: {
-        userId,
-        interestId: interest.id,
-        createdAt: { gte: oneDayAgo },
-      },
-    });
-    if (matchCount < 3) sparseInterests.push(interest);
+  if (!forceSearch) {
+    const oneDayAgo = new Date();
+    oneDayAgo.setDate(oneDayAgo.getDate() - 1);
+
+    const sparseInterests: typeof interests = [];
+    for (const interest of interests) {
+      const matchCount = await prisma.articleMatch.count({
+        where: {
+          userId,
+          interestId: interest.id,
+          createdAt: { gte: oneDayAgo },
+        },
+      });
+      if (matchCount < 3) sparseInterests.push(interest);
+    }
+
+    if (sparseInterests.length === 0) return { queriesRun: 0, resultsFound: 0, matchesCreated: 0 };
+    targetInterests = sparseInterests;
   }
-
-  if (sparseInterests.length === 0) return { queriesRun: 0, resultsFound: 0, matchesCreated: 0 };
 
   // Load block rules
   const blockRules = await prisma.sourceRule.findMany({
@@ -64,7 +70,7 @@ export async function runWebSearchForUser(opts: {
   let resultsFound = 0;
   let matchesCreated = 0;
 
-  for (const interest of sparseInterests.slice(0, maxQueries)) {
+  for (const interest of targetInterests.slice(0, maxQueries)) {
     const queryText = `Latest developments in ${interest.label} — important news, regulatory updates, and industry impact ${monthYear}`;
 
     try {

@@ -30,6 +30,7 @@ export async function POST(request: NextRequest) {
     webSearchResults = await runWebSearchForUser({
       userId,
       depthLevel: 'expanded', // Always use expanded for demo so we get maximum coverage
+      forceSearch: true, // Skip sparseness check — always fetch fresh articles
     });
   } catch (err) {
     // Log but don't fail — fall back to existing articles
@@ -52,9 +53,8 @@ export async function POST(request: NextRequest) {
   const today = new Date();
   today.setUTCHours(0, 0, 0, 0);
 
-  if (body.force) {
-    await prisma.digest.deleteMany({ where: { userId, runDate: today } });
-  }
+  // Always rebuild digest in demo mode since we just fetched fresh articles
+  await prisma.digest.deleteMany({ where: { userId, runDate: today } });
 
   const digestId = await buildDigestForUser({ userId, runDate: today });
 
