@@ -13,12 +13,7 @@ export default function Home() {
         className="sticky top-0 z-50 flex items-center justify-between px-6 py-4"
         style={{ background: '#011E41', borderBottom: '1px solid rgba(255,255,255,0.08)' }}
       >
-        <span
-          className="text-sm font-bold tracking-[3px] uppercase"
-          style={{ color: '#F5A800', fontFamily: 'var(--font-display)', letterSpacing: '0.2em' }}
-        >
-          CROWE INTELLIGENCE
-        </span>
+        <img src="/crowe-logo-white.svg" alt="Crowe" style={{ height: 28, width: 'auto' }} />
         <Link
           href="/intake"
           className="text-sm font-bold px-4 py-2 rounded-lg transition-all duration-150"
@@ -90,7 +85,7 @@ export default function Home() {
         className="w-full py-6 px-6 text-center text-xs"
         style={{ background: '#011E41', borderTop: '1px solid rgba(255,255,255,0.08)', color: '#828282' }}
       >
-        <p>Smart decisions. Lasting value. · Crowe LLP AI Innovation Team</p>
+        <p>#SmartDecisions · Crowe LLP AI Innovation Team</p>
       </div>
     </div>
   );

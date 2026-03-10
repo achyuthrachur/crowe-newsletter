@@ -21,16 +21,7 @@ export function Masthead({ date, greeting }: MastheadProps) {
         <div style={{ height: 2, background: '#F5A800', marginBottom: 14 }} />
 
         <div className="flex items-baseline justify-between mb-3">
-          <h1
-            className="text-lg font-bold tracking-[4px] uppercase"
-            style={{
-              color: '#F5A800',
-              fontFamily: 'var(--font-display)',
-              letterSpacing: '0.25em',
-            }}
-          >
-            CROWE INTELLIGENCE
-          </h1>
+          <img src="/crowe-logo-white.svg" alt="Crowe" style={{ height: 28, width: 'auto' }} />
           <span
             className="text-xs font-medium uppercase tracking-wider"
             style={{ color: '#828282' }}

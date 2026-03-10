@@ -128,9 +128,7 @@ function PrefsContent() {
           >
             <span style={{ color: '#F5A800', fontSize: 22 }}>⚙</span>
           </div>
-          <h2 className="text-xl font-bold mb-2" style={{ color: '#011E41' }}>
-            Crowe Intelligence
-          </h2>
+          <img src="/crowe-logo-color.svg" alt="Crowe" className="mx-auto mb-2" style={{ height: 24, width: 'auto' }} />
           <p className="text-sm" style={{ color: '#828282' }}>{error}</p>
         </div>
       </div>
@@ -148,12 +146,7 @@ function PrefsContent() {
         className="sticky top-0 z-40 flex items-center justify-between px-6 py-4"
         style={{ background: '#011E41', borderBottom: '1px solid rgba(255,255,255,0.08)' }}
       >
-        <span
-          className="text-sm font-bold tracking-[3px] uppercase"
-          style={{ color: '#F5A800', fontFamily: 'var(--font-display)' }}
-        >
-          CROWE INTELLIGENCE
-        </span>
+        <img src="/crowe-logo-white.svg" alt="Crowe" style={{ height: 28, width: 'auto' }} />
         <span className="text-sm" style={{ color: '#828282' }}>{email}</span>
       </nav>
 

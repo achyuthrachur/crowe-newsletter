@@ -2,8 +2,8 @@ import type { Metadata } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Your Briefing — Personalized News Digest',
-  description: 'Get a personalized email digest of the news that matters to you.',
+  title: 'Crowe Intelligence — AI Briefing Platform',
+  description: 'AI-powered intelligence briefings for Crowe professionals. Curated from 50+ sources, delivered before 7am.',
 };
 
 export default function RootLayout({

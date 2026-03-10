@@ -284,12 +284,7 @@ export function WizardShell({ initialEmail = '', initialDemo = false }: WizardSh
     <div className="min-h-screen py-10 px-6" style={{ background: '#F7F8FA' }}>
       {/* Nav */}
       <div className="max-w-2xl mx-auto mb-8 flex items-center justify-between">
-        <span
-          className="text-sm font-bold tracking-[3px] uppercase"
-          style={{ color: '#011E41', fontFamily: 'var(--font-display)' }}
-        >
-          CROWE INTELLIGENCE
-        </span>
+        <img src="/crowe-logo-color.svg" alt="Crowe" style={{ height: 28, width: 'auto' }} />
         <button
           type="button"
           onClick={() => setIsDemo((d) => !d)}

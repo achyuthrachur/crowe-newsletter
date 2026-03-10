@@ -57,12 +57,7 @@ export function DigestPreviewCard() {
         {/* Masthead */}
         <div style={{ background: '#011E41', padding: '16px 24px' }}>
           <div className="flex items-center justify-between">
-            <span
-              className="text-xs font-bold tracking-[4px] uppercase"
-              style={{ color: '#F5A800', letterSpacing: '0.25em' }}
-            >
-              CROWE INTELLIGENCE
-            </span>
+            <img src="/crowe-logo-white.svg" alt="Crowe" style={{ height: 22, width: 'auto' }} />
             <div className="flex items-center gap-3">
               <AnimatedStatusBadge trigger={true} />
               <span className="text-xs" style={{ color: '#828282' }}>
