@@ -2,18 +2,20 @@ import type { Metadata } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Newsletter Distribution Agent',
-  description: 'Preference-driven email digest with deep research capabilities',
+  title: 'Your Briefing — Personalized News Digest',
+  description: 'Get a personalized email digest of the news that matters to you.',
 };
 
 export default function RootLayout({
   children,
-}: Readonly<{
+}: {
   children: React.ReactNode;
-}>) {
+}) {
   return (
     <html lang="en">
-      <body className="antialiased">{children}</body>
+      <body className="min-h-screen bg-white text-tint-900 antialiased">
+        {children}
+      </body>
     </html>
   );
 }

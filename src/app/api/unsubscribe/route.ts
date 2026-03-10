@@ -1,29 +1,38 @@
-import { NextRequest } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
-import { validateAuthToken } from '@/lib/auth';
+import { validateToken } from '@/lib/tokens';
 
-export async function POST(request: NextRequest) {
-  const token = request.nextUrl.searchParams.get('token');
+export async function POST(req: NextRequest) {
+  const token = req.nextUrl.searchParams.get('token');
+
   if (!token) {
-    return Response.json({ error: 'Token required' }, { status: 400 });
+    return NextResponse.json({ ok: false, error: 'Token is required' }, { status: 400 });
   }
 
-  const userId = await validateAuthToken(token, 'unsubscribe');
-  if (!userId) {
-    return Response.json({ error: 'Invalid or expired token' }, { status: 401 });
+  const result = await validateToken(token, 'unsubscribe');
+  if (!result.valid) {
+    return NextResponse.json({ ok: false, error: result.error }, { status: 401 });
   }
 
-  await prisma.profile.update({
-    where: { userId },
-    data: { emailEnabled: false },
-  });
+  try {
+    await prisma.profile.update({
+      where: { userId: result.userId },
+      data: { emailEnabled: false },
+    });
 
-  await prisma.emailEvent.create({
-    data: {
-      userId,
-      type: 'unsubscribed',
-    },
-  });
+    await prisma.emailEvent.create({
+      data: {
+        userId: result.userId,
+        type: 'unsubscribed',
+      },
+    });
 
-  return Response.json({ ok: true });
+    return NextResponse.json({ ok: true });
+  } catch (err) {
+    console.error('Unsubscribe error:', err);
+    return NextResponse.json(
+      { ok: false, error: 'Internal server error' },
+      { status: 500 }
+    );
+  }
 }

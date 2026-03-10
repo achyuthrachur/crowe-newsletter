@@ -1,124 +1,96 @@
 import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/db';
 import { validateAuthToken } from '@/lib/auth';
-import type { FeedbackRating } from '@/types';
 
-const VALID_RATINGS: FeedbackRating[] = ['up', 'down'];
+const VALID_ACTIONS = ['upvote', 'downvote', 'dismiss', 'block_source'] as const;
+type FeedbackAction = typeof VALID_ACTIONS[number];
+
+const SUPPRESSION_DAYS = parseInt(process.env.SUPPRESSION_DAYS_DEFAULT ?? '14', 10);
 
 /**
- * GET /api/feedback?token=...&articleId=...&rating=up|down
- * For email link clicks (emails can't POST).
- * Returns a minimal HTML "Thanks" page.
+ * GET /api/feedback?token=...&action=upvote|downvote|dismiss|block_source
+ *   &articleId=...&digestId=...&interestId=...&domain=...
  */
 export async function GET(request: NextRequest) {
-  const token = request.nextUrl.searchParams.get('token');
-  const articleId = request.nextUrl.searchParams.get('articleId');
-  const rating = request.nextUrl.searchParams.get('rating') as FeedbackRating | null;
+  const sp = request.nextUrl.searchParams;
+  const token = sp.get('token');
+  const action = sp.get('action') as FeedbackAction | null;
+  const articleId = sp.get('articleId');
+  const digestId = sp.get('digestId') ?? undefined;
+  const interestId = sp.get('interestId') ?? undefined;
+  const domain = sp.get('domain') ?? undefined;
 
-  if (!token || !articleId || !rating) {
-    return new Response(renderPage('Missing required parameters.', false), {
-      status: 400,
-      headers: { 'Content-Type': 'text/html' },
-    });
+  if (!token || !action || !articleId) {
+    return html('Missing required parameters.', false, 400);
   }
-
-  if (!VALID_RATINGS.includes(rating)) {
-    return new Response(renderPage('Invalid rating. Use "up" or "down".', false), {
-      status: 400,
-      headers: { 'Content-Type': 'text/html' },
-    });
+  if (!VALID_ACTIONS.includes(action)) {
+    return html('Invalid action.', false, 400);
+  }
+  if (action === 'block_source' && !domain) {
+    return html('domain required for block_source action.', false, 400);
   }
 
   const userId = await validateAuthToken(token, 'prefs');
   if (!userId) {
-    return new Response(renderPage('Invalid or expired link.', false), {
-      status: 401,
-      headers: { 'Content-Type': 'text/html' },
-    });
+    return html('Invalid or expired link.', false, 401);
   }
 
-  // Verify article exists
-  const article = await prisma.article.findUnique({
-    where: { id: articleId },
-  });
+  const article = await prisma.article.findUnique({ where: { id: articleId } });
   if (!article) {
-    return new Response(renderPage('Article not found.', false), {
-      status: 404,
-      headers: { 'Content-Type': 'text/html' },
+    return html('Article not found.', false, 404);
+  }
+
+  // Record feedback event
+  await prisma.feedbackEvent.create({
+    data: { userId, articleId, digestId, interestId, action },
+  });
+
+  // Side effects
+  if (action === 'dismiss') {
+    const expiresAt = new Date(Date.now() + SUPPRESSION_DAYS * 24 * 60 * 60 * 1000);
+    const titleHash = Buffer.from(article.title).toString('base64').slice(0, 32);
+    await prisma.userStorySuppression.upsert({
+      where: { userId_canonicalUrl: { userId, canonicalUrl: article.canonicalUrl } },
+      create: { userId, canonicalUrl: article.canonicalUrl, titleHash, expiresAt },
+      update: { expiresAt },
     });
   }
 
-  // Upsert feedback (idempotent)
-  await prisma.articleFeedback.upsert({
-    where: { userId_articleId: { userId, articleId } },
-    create: { userId, articleId, rating },
-    update: { rating },
-  });
+  if (action === 'block_source' && domain) {
+    await prisma.userSourceBlock.upsert({
+      where: { userId_domain: { userId, domain } },
+      create: { userId, domain },
+      update: {},
+    });
+  }
 
-  const message = rating === 'up'
-    ? 'Thanks! We\'ll show you more like this.'
-    : 'Got it. We\'ll adjust your recommendations.';
+  const messages: Record<FeedbackAction, string> = {
+    upvote: "Marked as relevant. We'll show you more like this.",
+    downvote: "Got it. We'll adjust your recommendations.",
+    dismiss: 'Story hidden for 14 days.',
+    block_source: `${domain} blocked. You won't see articles from this source.`,
+  };
 
-  return new Response(renderPage(message, true), {
-    status: 200,
-    headers: { 'Content-Type': 'text/html' },
-  });
+  return html(messages[action], true, 200);
 }
 
-/**
- * POST /api/feedback — JSON API for future web UI.
- */
-export async function POST(request: NextRequest) {
-  const token = request.nextUrl.searchParams.get('token');
-  if (!token) {
-    return Response.json({ error: 'Token required' }, { status: 400 });
-  }
-
-  const userId = await validateAuthToken(token, 'prefs');
-  if (!userId) {
-    return Response.json({ error: 'Invalid or expired token' }, { status: 401 });
-  }
-
-  const body = await request.json();
-  const { articleId, rating } = body;
-
-  if (!articleId || !rating || !VALID_RATINGS.includes(rating)) {
-    return Response.json({ error: 'articleId and rating (up|down) required' }, { status: 400 });
-  }
-
-  await prisma.articleFeedback.upsert({
-    where: { userId_articleId: { userId, articleId } },
-    create: { userId, articleId, rating },
-    update: { rating },
-  });
-
-  return Response.json({ ok: true, rating });
-}
-
-function renderPage(message: string, success: boolean): string {
+function html(message: string, success: boolean, status: number): Response {
   const color = success ? '#05AB8C' : '#E5376B';
-  return `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Feedback</title>
-</head>
-<body style="margin: 0; padding: 0; background-color: #F7F7F7; font-family: Arial, Helvetica, sans-serif; display: flex; align-items: center; justify-content: center; min-height: 100vh;">
-  <div style="background: #FFFFFF; padding: 48px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); text-align: center; max-width: 400px;">
-    <div style="font-size: 48px; margin-bottom: 16px;">${success ? '&#x2705;' : '&#x26A0;&#xFE0F;'}</div>
-    <p style="font-size: 18px; color: ${color}; font-weight: bold; margin: 0 0 8px;">${escapeHtml(message)}</p>
-    <p style="font-size: 14px; color: #828282; margin: 0;">You can close this tab.</p>
-  </div>
-</body>
-</html>`;
+  const icon = success ? '✅' : '⚠️';
+  return new Response(
+    `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Feedback</title></head>
+<body style="margin:0;padding:0;background:#F7F7F7;font-family:Arial,sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;">
+<div style="background:#fff;padding:48px;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,.06);text-align:center;max-width:400px;">
+<div style="font-size:48px;margin-bottom:16px;">${icon}</div>
+<p style="font-size:18px;color:${color};font-weight:bold;margin:0 0 8px;">${escHtml(message)}</p>
+<p style="font-size:14px;color:#828282;margin:0;">You can close this tab.</p>
+</div></body></html>`,
+    { status, headers: { 'Content-Type': 'text/html' } }
+  );
 }
 
-function escapeHtml(text: string): string {
-  return text
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
+function escHtml(s: string) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }

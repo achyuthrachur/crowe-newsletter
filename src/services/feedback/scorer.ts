@@ -1,74 +1,60 @@
 import { prisma } from '@/lib/db';
 
+const LOOKBACK_DAYS = parseInt(process.env.FEEDBACK_LOOKBACK_DAYS ?? '30', 10);
+
 /**
  * Compute per-interest feedback adjustments for a user.
- *
- * Looks at ArticleFeedback joined with ArticleMatch to get per-interest engagement:
- * - positiveRate > 0.7 → boost +15
- * - positiveRate < 0.3 → penalty -15
- * - otherwise → no adjustment
- *
- * Returns a Map of interestId → boost value.
+ * Per Stage 4 spec §5.6:
+ * - upvoted domain >= 3 in last 30d → +10
+ * - downvoted domain >= 3 in last 30d → -25
+ * - downvoted matched interest >= 3 in last 30d → -20 (per interest)
  */
 export async function computeFeedbackAdjustments(
   userId: string
-): Promise<Map<string, number>> {
-  const boosts = new Map<string, number>();
+): Promise<{ domainBoosts: Map<string, number>; interestPenalties: Map<string, number> }> {
+  const since = new Date(Date.now() - LOOKBACK_DAYS * 24 * 60 * 60 * 1000);
 
-  // Get all feedback for this user with their article matches
-  const feedback = await prisma.articleFeedback.findMany({
-    where: { userId },
-    select: {
-      articleId: true,
-      rating: true,
-    },
+  const events = await prisma.feedbackEvent.findMany({
+    where: { userId, createdAt: { gte: since } },
+    include: { article: { select: { canonicalUrl: true } } },
   });
 
-  if (feedback.length === 0) return boosts;
+  const domainUp = new Map<string, number>();
+  const domainDown = new Map<string, number>();
+  const interestDown = new Map<string, number>();
 
-  // Build articleId → rating map
-  const ratingMap = new Map<string, string>();
-  for (const fb of feedback) {
-    ratingMap.set(fb.articleId, fb.rating);
-  }
-
-  // Get the article matches for the feedback articles
-  const articleIds = Array.from(ratingMap.keys());
-  const matches = await prisma.articleMatch.findMany({
-    where: {
-      userId,
-      articleId: { in: articleIds },
-    },
-    select: {
-      articleId: true,
-      interestId: true,
-    },
-  });
-
-  // Aggregate per interest
-  const interestStats = new Map<string, { up: number; total: number }>();
-
-  for (const match of matches) {
-    const rating = ratingMap.get(match.articleId);
-    if (!rating) continue;
-
-    const stats = interestStats.get(match.interestId) ?? { up: 0, total: 0 };
-    stats.total++;
-    if (rating === 'up') stats.up++;
-    interestStats.set(match.interestId, stats);
-  }
-
-  // Compute boost values
-  for (const [interestId, stats] of interestStats) {
-    if (stats.total < 3) continue; // Need at least 3 data points
-
-    const positiveRate = stats.up / stats.total;
-    if (positiveRate > 0.7) {
-      boosts.set(interestId, 15);
-    } else if (positiveRate < 0.3) {
-      boosts.set(interestId, -15);
+  for (const e of events) {
+    const domain = extractDomain(e.article.canonicalUrl);
+    if (e.action === 'upvote') {
+      domainUp.set(domain, (domainUp.get(domain) ?? 0) + 1);
+    } else if (e.action === 'downvote') {
+      domainDown.set(domain, (domainDown.get(domain) ?? 0) + 1);
+      if (e.interestId) {
+        interestDown.set(e.interestId, (interestDown.get(e.interestId) ?? 0) + 1);
+      }
     }
   }
 
-  return boosts;
+  const domainBoosts = new Map<string, number>();
+  for (const [domain, count] of domainUp) {
+    if (count >= 3) domainBoosts.set(domain, 10);
+  }
+  for (const [domain, count] of domainDown) {
+    if (count >= 3) domainBoosts.set(domain, -25);
+  }
+
+  const interestPenalties = new Map<string, number>();
+  for (const [interestId, count] of interestDown) {
+    if (count >= 3) interestPenalties.set(interestId, -20);
+  }
+
+  return { domainBoosts, interestPenalties };
+}
+
+function extractDomain(url: string): string {
+  try {
+    return new URL(url).hostname.replace(/^www\./, '');
+  } catch {
+    return url;
+  }
 }

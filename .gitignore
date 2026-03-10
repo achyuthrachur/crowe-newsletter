@@ -1,48 +1,49 @@
-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
 
-# dependencies
-/node_modules
-/.pnp
-.pnp.*
-.yarn/*
-!.yarn/patches
-!.yarn/plugins
-!.yarn/releases
-!.yarn/versions
+# Build
+.next/
+out/
+build/
+dist/
 
-# testing
-/coverage
-
-# next.js
-/.next/
-/out/
-
-# production
-/build
-
-# misc
-.DS_Store
-*.pem
-
-# debug
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-.pnpm-debug.log*
-
-# env files (can opt-in for committing if needed)
+# Environment
 .env
 .env.local
 .env.*.local
 
-# vercel
+# IDE
+.idea/
+.vscode/
+!.vscode/extensions.json
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Vercel
 .vercel
 
-# typescript
+# Debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# TypeScript
 *.tsbuildinfo
 next-env.d.ts
 
-/src/generated/prisma
+# Prisma
+prisma/*.db
 
-.vercel
-.env*.local
+# Backup files from consolidation agent
+*-CHHFM5S832.*
+-CHHFM5S832.gitignore
+
+# Nested project directory
+newsletter/
+
+# Temp files
+src/app/reader/page.tsx.tmp

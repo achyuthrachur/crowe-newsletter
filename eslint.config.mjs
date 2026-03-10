@@ -1,18 +1,20 @@
-import { defineConfig, globalIgnores } from "eslint/config";
-import nextVitals from "eslint-config-next/core-web-vitals";
-import nextTs from "eslint-config-next/typescript";
+import nextConfig from 'eslint-config-next';
+import nextCoreWebVitals from 'eslint-config-next/core-web-vitals';
 
-const eslintConfig = defineConfig([
-  ...nextVitals,
-  ...nextTs,
-  // Override default ignores of eslint-config-next.
-  globalIgnores([
-    // Default ignores of eslint-config-next:
-    ".next/**",
-    "out/**",
-    "build/**",
-    "next-env.d.ts",
-  ]),
-]);
+/** @type {import('eslint').Linter.Config[]} */
+const eslintConfig = [
+  {
+    ignores: [
+      '.next/**',
+      'newsletter/**',
+      'node_modules/**',
+      'scripts/**',
+      'prisma/seed.ts',
+      'vitest.config.ts',
+    ],
+  },
+  ...(Array.isArray(nextConfig) ? nextConfig : [nextConfig]),
+  ...(Array.isArray(nextCoreWebVitals) ? nextCoreWebVitals : [nextCoreWebVitals]),
+];
 
 export default eslintConfig;

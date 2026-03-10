@@ -1,3 +1,11 @@
+// shadcn/ui utility — merge Tailwind class names safely
+import { type ClassValue, clsx } from 'clsx';
+import { twMerge } from 'tailwind-merge';
+
+export function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs));
+}
+
 /**
  * Normalize a URL to a canonical form for deduplication.
  * Strips UTM params, trailing slashes, and lowercases the host.
@@ -15,7 +23,7 @@ export function canonicalizeUrl(rawUrl: string): string {
     }
     // Normalize
     url.hostname = url.hostname.toLowerCase().replace(/^www\./, '');
-    let path = url.pathname.replace(/\/+$/, '') || '/';
+    const path = url.pathname.replace(/\/+$/, '') || '/';
     return `${url.protocol}//${url.hostname}${path}${url.search}`;
   } catch {
     return rawUrl;

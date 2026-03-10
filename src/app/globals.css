@@ -1,32 +1,112 @@
-@import "tailwindcss";
+@import 'tailwindcss';
 
-:root {
-  --background: #ffffff;
-  --foreground: #333333;
-  --crowe-indigo: #002D62;
-  --crowe-indigo-dark: #011E41;
-  --crowe-amber: #FDB913;
-  --crowe-amber-dark: #D7761D;
-  --crowe-tint-100: #E0E0E0;
-  --crowe-tint-300: #BDBDBD;
-  --crowe-tint-500: #828282;
-  --crowe-tint-700: #4F4F4F;
-  --crowe-tint-900: #333333;
+@theme {
+  /* Crowe Primary Colors */
+  --color-crowe-amber-bright: #FFD231;
+  --color-crowe-amber: #F5A800;
+  --color-crowe-amber-dark: #D7761D;
+
+  --color-crowe-indigo-bright: #003F9F;
+  --color-crowe-indigo: #002E62;
+  --color-crowe-indigo-dark: #011E41;
+
+  /* Crowe Secondary Colors */
+  --color-crowe-teal-bright: #16D9BC;
+  --color-crowe-teal: #05AB8C;
+  --color-crowe-teal-dark: #0C7876;
+
+  --color-crowe-cyan-light: #8FE1FF;
+  --color-crowe-cyan: #54C0E8;
+  --color-crowe-cyan-dark: #007DA3;
+
+  --color-crowe-blue-light: #32A8FD;
+  --color-crowe-blue: #0075C9;
+  --color-crowe-blue-dark: #0050AD;
+
+  --color-crowe-violet-bright: #EA80FF;
+  --color-crowe-violet: #B14FC5;
+  --color-crowe-violet-dark: #612080;
+
+  --color-crowe-coral-bright: #FF526F;
+  --color-crowe-coral: #E5376B;
+  --color-crowe-coral-dark: #992A5C;
+
+  /* Neutral Tints */
+  --color-tint-900: #333333;
+  --color-tint-700: #4F4F4F;
+  --color-tint-500: #828282;
+  --color-tint-300: #BDBDBD;
+  --color-tint-100: #E0E0E0;
+
+  /* Font families */
+  --font-display: 'Helvetica Now Display', 'Helvetica Neue', Arial, system-ui, sans-serif;
+  --font-body: 'Helvetica Now Text', 'Helvetica Neue', Arial, system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', 'IBM Plex Mono', Consolas, monospace;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --color-crowe-indigo: var(--crowe-indigo);
-  --color-crowe-indigo-dark: var(--crowe-indigo-dark);
-  --color-crowe-amber: var(--crowe-amber);
-  --color-crowe-amber-dark: var(--crowe-amber-dark);
-  --font-sans: Arial, Helvetica, sans-serif;
-  --font-mono: 'JetBrains Mono', 'Fira Code', Consolas, monospace;
+  /* Bridge shadcn CSS variables → Tailwind v4 utilities */
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+  --color-card: hsl(var(--card));
+  --color-card-foreground: hsl(var(--card-foreground));
+  --color-popover: hsl(var(--popover));
+  --color-popover-foreground: hsl(var(--popover-foreground));
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+  --color-secondary: hsl(var(--secondary));
+  --color-secondary-foreground: hsl(var(--secondary-foreground));
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+  --color-accent: hsl(var(--accent));
+  --color-accent-foreground: hsl(var(--accent-foreground));
+  --color-destructive: hsl(var(--destructive));
+  --color-destructive-foreground: hsl(var(--destructive-foreground));
+  --color-border: hsl(var(--border));
+  --color-input: hsl(var(--input));
+  --color-ring: hsl(var(--ring));
+  --radius: 0.5rem;
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 0 0% 20%;
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 20%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 20%;
+    --primary: 215 100% 13%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 39 100% 48%;
+    --secondary-foreground: 215 100% 13%;
+    --muted: 0 0% 97%;
+    --muted-foreground: 0 0% 31%;
+    --accent: 39 100% 48%;
+    --accent-foreground: 215 100% 13%;
+    --destructive: 341 79% 56%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 0 0% 88%;
+    --input: 0 0% 88%;
+    --ring: 215 100% 19%;
+    --radius: 0.5rem;
+  }
+
+  * {
+    border-color: hsl(var(--border));
+  }
+
+  body {
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
+    font-family: var(--font-body);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, ::before, ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

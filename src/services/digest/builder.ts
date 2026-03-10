@@ -45,9 +45,9 @@ export async function buildDigestForUser(opts: {
   if (matches.length === 0) return null;
 
   // Apply feedback adjustments if personalization is enabled
-  let feedbackBoosts = new Map<string, number>();
+  let feedbackAdjustments = { domainBoosts: new Map<string, number>(), interestPenalties: new Map<string, number>() };
   if (flags.personalizationEnabled) {
-    feedbackBoosts = await computeFeedbackAdjustments(userId);
+    feedbackAdjustments = await computeFeedbackAdjustments(userId);
   }
 
   // Dedupe by article and apply feedback boosts
@@ -58,7 +58,10 @@ export async function buildDigestForUser(opts: {
     if (seen.has(match.articleId)) continue;
     seen.add(match.articleId);
 
-    const boost = feedbackBoosts.get(match.interestId) ?? 0;
+    const domain = (() => { try { return new URL(match.article.canonicalUrl).hostname.replace(/^www./,""); } catch { return ""; } })();
+    const domainBoost = feedbackAdjustments.domainBoosts.get(domain) ?? 0;
+    const interestPenalty = feedbackAdjustments.interestPenalties.get(match.interestId) ?? 0;
+    const boost = domainBoost + interestPenalty;
     const adjustedScore = match.score + boost;
 
     articles.push({

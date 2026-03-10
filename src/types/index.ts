@@ -11,6 +11,8 @@ export interface DigestArticle {
   score: number;
   interestLabel: string;
   interestSection: string;
+  whyItMatters?: string;
+  publishedAt?: string;
 }
 
 export interface DigestSection {
@@ -22,6 +24,7 @@ export interface DigestData {
   sections: DigestSection[];
   totalArticles: number;
   dateLabel: string;
+  greeting?: string;
 }
 
 export interface CollectSourcesResult {
@@ -136,7 +139,7 @@ export interface AuthTokenSet {
 }
 
 // Helper to cast typed state to Prisma Json-compatible value
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+ 
 export function toJson(value: DeepDiveState): any {
   return JSON.parse(JSON.stringify(value));
 }

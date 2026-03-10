@@ -1,51 +1,63 @@
+// Prisma Schema — Stage 1 + Stage 2 + Stage 4
+// All IDs are UUID v4. All timestamps are UTC (timestamptz).
+
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider  = "postgresql"
-  url       = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
-// ============================================================
-// STAGE 1 — Core Tables
-// ============================================================
+// ── Stage 1 Tables ─────────────────────────────────────────────
 
 model User {
   id        String   @id @default(uuid()) @db.Uuid
   email     String   @unique
   timezone  String   @default("America/Indiana/Indianapolis")
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
-  profile         Profile?
-  interests       Interest[]
-  schedule        Schedule?
-  digests         Digest[]
-  emailEvents     EmailEvent[]
-  authTokens      AuthToken[]
-  articleMatches  ArticleMatch[]
-  articleFeedback ArticleFeedback[]
-  searchQueries   SearchQuery[]
-  deepDiveConfig  DeepDiveConfig?
-  deepDiveTopics  DeepDiveTopic[]
-  deepDiveJobs    DeepDiveJob[]
+  profile       Profile?
+  interests     Interest[]
+  schedule      Schedule?
+  articleMatches ArticleMatch[]
+  digests       Digest[]
+  emailEvents   EmailEvent[]
+  authTokens    AuthToken[]
+  searchQueries SearchQuery[]
+
+  // Stage 4 additions
+  keywordBlocks      UserKeywordBlock[]
+  sourceBlocks       UserSourceBlock[]
+  feedbackEvents     FeedbackEvent[]
+  storySuppression   UserStorySuppression[]
+  deepDiveConfig     DeepDiveConfig?
+  deepDiveTopics     DeepDiveTopic[]
+  deepDiveJobs       DeepDiveJob[]
 
   @@map("users")
 }
 
 model Profile {
-  id            String   @id @default(uuid()) @db.Uuid
-  userId        String   @unique @map("user_id") @db.Uuid
-  displayName   String?  @map("display_name")
-  roleTitle     String?  @map("role_title")
-  industryFocus String?  @map("industry_focus")
-  emailEnabled  Boolean  @default(true) @map("email_enabled")
-  paused        Boolean  @default(false)
-  depthLevel    String   @default("quick") @map("depth_level") // Stage 2: 'quick' | 'standard' | 'expanded'
-  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz
+  id            String  @id @default(uuid()) @db.Uuid
+  userId        String  @unique @map("user_id") @db.Uuid
+  displayName   String? @map("display_name")
+  roleTitle     String? @map("role_title")
+  industryFocus String? @map("industry_focus")
+  emailEnabled  Boolean @default(true) @map("email_enabled")
+  paused        Boolean @default(false)
+
+  // Stage 2 addition
+  depthLevel    String  @default("quick") @map("depth_level")
+
+  // Stage 4 additions
+  maxItemsTotal      Int @default(8) @map("max_items_total")
+  maxItemsPerSection Int @default(3) @map("max_items_per_section")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -53,17 +65,20 @@ model Profile {
 }
 
 model Interest {
-  id        String   @id @default(uuid()) @db.Uuid
-  userId    String   @map("user_id") @db.Uuid
-  section   String   // e.g. "AI", "Expertise", "Clients & Prospects"
-  label     String   // e.g. "AI in financial services"
-  type      String   // 'topic' | 'industry' | 'entity'
-  weight    Int      @default(100)
+  id      String @id @default(uuid()) @db.Uuid
+  userId  String @map("user_id") @db.Uuid
+  section String
+  label   String
+  type    String // 'topic' | 'industry' | 'entity'
+  weight  Int    @default(100)
+
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
 
-  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
   articleMatches ArticleMatch[]
-  deepDiveTopics DeepDiveTopic[]
+  feedbackEvents FeedbackEvent[]
+  deepDiveTopics  DeepDiveTopic[]
+  deepDiveJobs    DeepDiveJob[]
 
   @@index([userId, section])
   @@index([userId, label])
@@ -73,10 +88,11 @@ model Interest {
 model Schedule {
   id         String   @id @default(uuid()) @db.Uuid
   userId     String   @unique @map("user_id") @db.Uuid
-  rrule      String   // RFC 5545 RRULE
+  rrule      String
   nextSendAt DateTime @map("next_send_at") @db.Timestamptz
-  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -84,41 +100,44 @@ model Schedule {
 }
 
 model Source {
-  id          String  @id @default(uuid()) @db.Uuid
-  name        String
-  type        String  // 'rss'
-  url         String  @unique
-  enabled     Boolean @default(true)
-  qualityTier Int     @default(2) @map("quality_tier") // 1=highest, 2=good, 3=allowed, 9=blocked
+  id      String  @id @default(uuid()) @db.Uuid
+  name    String
+  type    String  // 'rss'
+  url     String  @unique
+  enabled Boolean @default(true)
+
+  // Stage 2 addition
+  qualityTier Int @default(2) @map("quality_tier")
 
   @@map("sources")
 }
 
 model Article {
-  id           String    @id @default(uuid()) @db.Uuid
-  canonicalUrl String    @unique @map("canonical_url")
+  id           String   @id @default(uuid()) @db.Uuid
+  canonicalUrl String   @unique @map("canonical_url")
   title        String
-  sourceName   String    @map("source_name")
+  sourceName   String   @map("source_name")
   publishedAt  DateTime? @map("published_at") @db.Timestamptz
-  fetchedAt    DateTime  @default(now()) @map("fetched_at") @db.Timestamptz
+  fetchedAt    DateTime @default(now()) @map("fetched_at") @db.Timestamptz
   snippet      String?
-  accessStatus String    @default("unknown") @map("access_status") // 'ok' | 'paywalled' | 'blocked' | 'unknown'
-  contentHash  String?   @map("content_hash")
+  accessStatus String   @default("unknown") @map("access_status")
+  contentHash  String?  @map("content_hash")
 
-  matches  ArticleMatch[]
-  feedback ArticleFeedback[]
+  articleMatches  ArticleMatch[]
+  feedbackEvents  FeedbackEvent[]
 
   @@map("articles")
 }
 
 model ArticleMatch {
-  id         String   @id @default(uuid()) @db.Uuid
-  articleId  String   @map("article_id") @db.Uuid
-  userId     String   @map("user_id") @db.Uuid
-  interestId String   @map("interest_id") @db.Uuid
+  id         String @id @default(uuid()) @db.Uuid
+  articleId  String @map("article_id") @db.Uuid
+  userId     String @map("user_id") @db.Uuid
+  interestId String @map("interest_id") @db.Uuid
   score      Int
   reason     String
-  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
 
   article  Article  @relation(fields: [articleId], references: [id], onDelete: Cascade)
   user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -130,27 +149,30 @@ model ArticleMatch {
 }
 
 model Digest {
-  id        String   @id @default(uuid()) @db.Uuid
-  userId    String   @map("user_id") @db.Uuid
-  runDate   DateTime @map("run_date") @db.Date
-  subject   String
-  html      String
-  text      String
+  id      String @id @default(uuid()) @db.Uuid
+  userId  String @map("user_id") @db.Uuid
+  runDate DateTime @map("run_date") @db.Date
+  subject String
+  html    String
+  text    String
+
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
 
-  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  emailEvents EmailEvent[]
+  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  emailEvents    EmailEvent[]
+  feedbackEvents FeedbackEvent[]
 
   @@unique([userId, runDate])
   @@map("digests")
 }
 
 model EmailEvent {
-  id        String   @id @default(uuid()) @db.Uuid
-  userId    String   @map("user_id") @db.Uuid
-  digestId  String?  @map("digest_id") @db.Uuid
-  type      String   // 'sent' | 'bounced' | 'complaint' | 'unsubscribed'
-  payload   Json?
+  id       String  @id @default(uuid()) @db.Uuid
+  userId   String  @map("user_id") @db.Uuid
+  digestId String? @map("digest_id") @db.Uuid
+  type     String  // 'sent' | 'bounced' | 'complaint' | 'unsubscribed'
+  payload  Json?
+
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
 
   user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -165,6 +187,7 @@ model AuthToken {
   tokenHash String   @unique @map("token_hash")
   scope     String   // 'prefs' | 'unsubscribe' | 'pause'
   expiresAt DateTime @map("expires_at") @db.Timestamptz
+
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -172,25 +195,25 @@ model AuthToken {
   @@map("auth_tokens")
 }
 
-// ============================================================
-// STAGE 2 — Web Search Tables
-// ============================================================
+// ── Stage 2 New Tables ─────────────────────────────────────────
 
 model SourceRule {
-  id        String   @id @default(uuid()) @db.Uuid
-  pattern   String   // domain or regex pattern
-  action    String   // 'allow' | 'block'
-  reason    String
+  id      String @id @default(uuid()) @db.Uuid
+  pattern String
+  action  String // 'allow' | 'block'
+  reason  String
+
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
 
   @@map("source_rules")
 }
 
 model SearchQuery {
-  id        String   @id @default(uuid()) @db.Uuid
-  userId    String   @map("user_id") @db.Uuid
-  runDate   DateTime @map("run_date") @db.Date
-  query     String
+  id      String   @id @default(uuid()) @db.Uuid
+  userId  String   @map("user_id") @db.Uuid
+  runDate DateTime @map("run_date") @db.Date
+  query   String
+
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
 
   user    User           @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -208,7 +231,8 @@ model SearchResult {
   snippet       String?
   sourceName    String?   @map("source_name")
   publishedAt   DateTime? @map("published_at") @db.Timestamptz
-  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
 
   searchQuery SearchQuery @relation(fields: [searchQueryId], references: [id], onDelete: Cascade)
 
@@ -216,40 +240,79 @@ model SearchResult {
   @@map("search_results")
 }
 
-// ============================================================
-// STAGE 4 — Feedback & Personalization
-// ============================================================
+// ── Stage 4 Tables ─────────────────────────────────────────────
 
-model ArticleFeedback {
+model UserKeywordBlock {
   id        String   @id @default(uuid()) @db.Uuid
   userId    String   @map("user_id") @db.Uuid
-  articleId String   @map("article_id") @db.Uuid
-  rating    String   // 'up' | 'down'
+  keyword   String
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
 
-  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  article Article @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@unique([userId, articleId])
-  @@index([userId, createdAt])
-  @@map("article_feedback")
+  @@unique([userId, keyword])
+  @@map("user_keyword_blocks")
 }
 
-// ============================================================
-// STAGE 3 — Deep Research Tables
-// ============================================================
+model UserSourceBlock {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  domain    String
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, domain])
+  @@map("user_source_blocks")
+}
+
+model FeedbackEvent {
+  id         String   @id @default(uuid()) @db.Uuid
+  userId     String   @map("user_id") @db.Uuid
+  articleId  String   @map("article_id") @db.Uuid
+  digestId   String?  @map("digest_id") @db.Uuid
+  interestId String?  @map("interest_id") @db.Uuid
+  action     String   // 'upvote' | 'downvote' | 'dismiss' | 'block_source'
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  article  Article   @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  digest   Digest?   @relation(fields: [digestId], references: [id], onDelete: SetNull)
+  interest Interest? @relation(fields: [interestId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([userId, articleId])
+  @@map("feedback_events")
+}
+
+model UserStorySuppression {
+  id           String   @id @default(uuid()) @db.Uuid
+  userId       String   @map("user_id") @db.Uuid
+  canonicalUrl String   @map("canonical_url")
+  titleHash    String   @map("title_hash")
+  expiresAt    DateTime @map("expires_at") @db.Timestamptz
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, canonicalUrl])
+  @@map("user_story_suppressions")
+}
+
+// ── Stage 3 Tables ─────────────────────────────────────────────
 
 model DeepDiveConfig {
   id          String   @id @default(uuid()) @db.Uuid
   userId      String   @unique @map("user_id") @db.Uuid
   enabled     Boolean  @default(false)
-  dayOfWeek   String   @default("FR") @map("day_of_week") // 'MO'..'SU'
+  dayOfWeek   String   @default("FR") @map("day_of_week")
   maxSources  Int      @default(12) @map("max_sources")
   maxSections Int      @default(6) @map("max_sections")
   createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user   User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  topics DeepDiveTopic[]
 
   @@map("deep_dive_configs")
 }
@@ -258,29 +321,32 @@ model DeepDiveTopic {
   id         String   @id @default(uuid()) @db.Uuid
   userId     String   @map("user_id") @db.Uuid
   interestId String   @map("interest_id") @db.Uuid
+  configId   String   @map("config_id") @db.Uuid
   createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
 
-  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  interest Interest @relation(fields: [interestId], references: [id], onDelete: Cascade)
+  user     User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  interest Interest       @relation(fields: [interestId], references: [id], onDelete: Cascade)
+  config   DeepDiveConfig @relation(fields: [configId], references: [id], onDelete: Cascade)
 
   @@unique([userId, interestId])
   @@map("deep_dive_topics")
 }
 
 model DeepDiveJob {
-  id              String   @id @default(uuid()) @db.Uuid
-  userId          String   @map("user_id") @db.Uuid
-  runWeek         DateTime @map("run_week") @db.Date // Monday of the week in user TZ
-  status          String   @default("queued") // 'queued' | 'running' | 'partial' | 'complete' | 'failed' | 'aborted'
-  topicInterestId String   @map("topic_interest_id") @db.Uuid
-  attempt         Int      @default(0)
-  state           Json     @default("{}") // DeepDiveState JSONB
-  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz
+  id               String   @id @default(uuid()) @db.Uuid
+  userId           String   @map("user_id") @db.Uuid
+  runWeek          DateTime @map("run_week") @db.Date
+  status           String   @default("queued")
+  topicInterestId  String   @map("topic_interest_id") @db.Uuid
+  attempt          Int      @default(0)
+  state            Json     @default("{}")
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt        DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
-  user    User              @relation(fields: [userId], references: [id], onDelete: Cascade)
-  sources DeepDiveSource[]
-  report  DeepDiveReport?
+  user     User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  interest Interest           @relation(fields: [topicInterestId], references: [id], onDelete: Cascade)
+  sources  DeepDiveSource[]
+  report   DeepDiveReport?
 
   @@unique([userId, runWeek])
   @@map("deep_dive_jobs")
@@ -293,8 +359,8 @@ model DeepDiveSource {
   title         String?
   sourceName    String?   @map("source_name")
   publishedAt   DateTime? @map("published_at") @db.Timestamptz
-  accessStatus  String    @default("unknown") @map("access_status") // 'ok' | 'paywalled' | 'blocked' | 'unknown'
-  extractedText String?   @map("extracted_text") // max 20k chars
+  accessStatus  String    @default("unknown") @map("access_status")
+  extractedText String?   @map("extracted_text")
   createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz
 
   job DeepDiveJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
