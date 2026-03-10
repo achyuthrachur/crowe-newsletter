@@ -1,51 +1,33 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
-import { motion, type Variants } from 'framer-motion';
+import { useEffect, useState } from 'react';
+import { motion } from 'framer-motion';
 import Link from 'next/link';
+import VaporizeTextCycle, { Tag } from '@/components/ui/text-reveal';
+import { AnimatedBg } from '@/components/ui/animated-bg';
 
-// TODO: replace with <TextReveal> when C1 is provided
-// TODO: replace static gradient bg with <AnimatedBg> when C2 is provided
-
-const HEADLINE_WORDS = ['Your', 'daily', 'intelligence', 'briefing,', 'built', 'for', 'your', 'practice.'];
-
-// Custom variant function — valid in framer-motion (disable type narrowing with cast)
- 
-const WORD_VARIANTS: Variants = {
-  hidden: { opacity: 0, y: 12 },
-  visible: ((i: number) => ({
-    opacity: 1,
-    y: 0,
-    transition: { duration: 0.28, delay: i * 0.06, ease: [0.25, 0.1, 0.25, 1] },
-  })) as unknown as Variants['visible'],
-};
+const CYCLING_PHRASES = [
+  'intelligence briefing,',
+  'regulatory digest,',
+  'risk intelligence,',
+];
 
 export function HeroSection() {
   const [emailValue, setEmailValue] = useState('');
   const [visible, setVisible] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    // Small delay to let the page render before triggering entrance
     const t = setTimeout(() => setVisible(true), 80);
     return () => clearTimeout(t);
   }, []);
 
   return (
     <div
-      ref={ref}
       className="relative w-full overflow-hidden"
-      style={{ background: '#011E41', minHeight: '92vh' }}
+      style={{ background: '#011E41', minHeight: '92vh', isolation: 'isolate' }}
     >
-      {/* Static gradient placeholder — replace with <AnimatedBg> when C2 is provided */}
-      <div
-        className="absolute inset-0 pointer-events-none"
-        style={{
-          background:
-            'radial-gradient(ellipse 80% 60% at 60% 40%, rgba(245,168,0,0.07) 0%, transparent 70%), radial-gradient(ellipse 60% 80% at 20% 80%, rgba(5,171,140,0.05) 0%, transparent 60%)',
-        }}
-        aria-hidden
-      />
+      {/* C2 — Animated dotted surface background */}
+      <AnimatedBg />
 
       <div className="relative z-10 max-w-5xl mx-auto px-6 pt-28 pb-24">
         <div className="max-w-3xl">
@@ -68,26 +50,45 @@ export function HeroSection() {
             </span>
           </motion.div>
 
-          {/* Headline — word stagger via framer-motion */}
-          {/* TODO: replace with <TextReveal text="..." className="..."> when C1 is provided */}
-          <h1
-            className="text-5xl sm:text-6xl font-bold leading-[1.1] mb-6"
-            style={{ fontFamily: 'var(--font-display)', color: '#FFFFFF' }}
+          {/* Headline — static prefix + C1 VaporizeTextCycle for cycling phrase */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={visible ? { opacity: 1 } : {}}
+            transition={{ duration: 0.28, delay: 0.1 }}
           >
-            {HEADLINE_WORDS.map((word, i) => (
-              <motion.span
-                key={i}
-                custom={i}
-                variants={WORD_VARIANTS}
-                initial="hidden"
-                animate={visible ? 'visible' : 'hidden'}
-                className="inline-block mr-[0.25em]"
-                style={word === 'intelligence' || word === 'briefing,' ? { color: '#F5A800' } : undefined}
-              >
-                {word}
-              </motion.span>
-            ))}
-          </h1>
+            <h1
+              className="font-bold leading-[1.1] mb-2"
+              style={{ fontFamily: 'var(--font-display)', color: '#FFFFFF', fontSize: 'clamp(2.5rem, 5vw, 3.75rem)' }}
+            >
+              Your daily
+            </h1>
+
+            {/* C1 — VaporizeTextCycle cycling phrase in amber */}
+            <div style={{ height: 'clamp(3rem, 6vw, 4.5rem)', width: '100%', maxWidth: 600 }}>
+              <VaporizeTextCycle
+                texts={CYCLING_PHRASES}
+                font={{
+                  fontFamily: 'var(--font-display), Arial, sans-serif',
+                  fontSize: 'clamp(2.5rem, 5vw, 3.75rem)',
+                  fontWeight: 700,
+                }}
+                color="rgb(245, 168, 0)"
+                spread={4}
+                density={6}
+                animation={{ vaporizeDuration: 2, fadeInDuration: 0.8, waitDuration: 2 }}
+                direction="left-to-right"
+                alignment="left"
+                tag={Tag.H1}
+              />
+            </div>
+
+            <h1
+              className="font-bold leading-[1.1] mb-6"
+              style={{ fontFamily: 'var(--font-display)', color: '#FFFFFF', fontSize: 'clamp(2.5rem, 5vw, 3.75rem)' }}
+            >
+              built for your practice.
+            </h1>
+          </motion.div>
 
           <motion.p
             initial={{ opacity: 0, y: 10 }}

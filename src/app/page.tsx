@@ -3,6 +3,7 @@ import { DigestPreviewCard } from '@/components/landing/digest-preview-card';
 import { FeatureStrip } from '@/components/landing/feature-strip';
 import { HowItWorks } from '@/components/landing/how-it-works';
 import { HeroSection } from '@/components/landing/hero';
+import { ContainerScroll } from '@/components/ui/container-scroll-animation';
 
 export default function Home() {
   return (
@@ -33,25 +34,27 @@ export default function Home() {
       {/* Feature strip */}
       <FeatureStrip />
 
-      {/* Digest preview */}
-      <div
-        className="w-full py-20 px-6"
-        style={{ background: '#F7F8FA' }}
-      >
-        <div className="max-w-5xl mx-auto">
-          <div className="text-center mb-12">
-            <h2
-              className="text-3xl font-bold mb-3"
-              style={{ color: '#011E41', fontFamily: 'var(--font-display)' }}
-            >
-              What a briefing looks like
-            </h2>
-            <p className="text-base" style={{ color: '#828282' }}>
-              Editorial format. Real context. Built for Crowe professionals.
-            </p>
+      {/* C4 — ContainerScroll wraps the digest preview for a dramatic scroll reveal */}
+      <div style={{ background: '#F7F8FA' }}>
+        <ContainerScroll
+          titleComponent={
+            <div className="text-center mb-4">
+              <h2
+                className="text-3xl font-bold mb-3"
+                style={{ color: '#011E41', fontFamily: 'var(--font-display)' }}
+              >
+                What a briefing looks like
+              </h2>
+              <p className="text-base" style={{ color: '#828282' }}>
+                Editorial format. Real context. Built for Crowe professionals.
+              </p>
+            </div>
+          }
+        >
+          <div className="h-full w-full overflow-auto rounded-xl p-4" style={{ background: '#F7F8FA' }}>
+            <DigestPreviewCard />
           </div>
-          <DigestPreviewCard />
-        </div>
+        </ContainerScroll>
       </div>
 
       {/* How it works */}
