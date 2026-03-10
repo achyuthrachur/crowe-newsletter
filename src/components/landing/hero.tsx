@@ -64,12 +64,13 @@ export function HeroSection() {
             </h1>
 
             {/* C1 — VaporizeTextCycle cycling phrase in amber */}
-            <div style={{ height: 'clamp(3rem, 6vw, 4.5rem)', width: '100%', maxWidth: 600 }}>
+            {/* fontSize must be a px value — canvas does not support clamp() or rem */}
+            <div style={{ height: '72px', width: '100%', maxWidth: 680 }}>
               <VaporizeTextCycle
                 texts={CYCLING_PHRASES}
                 font={{
-                  fontFamily: 'var(--font-display), Arial, sans-serif',
-                  fontSize: 'clamp(2.5rem, 5vw, 3.75rem)',
+                  fontFamily: 'Arial, sans-serif',
+                  fontSize: '60px',
                   fontWeight: 700,
                 }}
                 color="rgb(245, 168, 0)"
