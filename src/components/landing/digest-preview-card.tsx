@@ -2,9 +2,7 @@
 
 import { motion } from 'framer-motion';
 import { LANDING_PREVIEW_DIGEST, type PreviewArticle } from '@/data/landing-preview';
-
-// TODO: replace with TiltCard when C3 is provided
-// <div data-placeholder="tilt-card">
+import { AnimatedStatusBadge } from '@/components/ui/animated-status-badge';
 
 function ArticleCard({ article, isLead = false }: { article: PreviewArticle; isLead?: boolean }) {
   return (
@@ -51,7 +49,6 @@ export function DigestPreviewCard() {
   const restArticles = allArticles.slice(1, 4);
 
   return (
-    // data-placeholder="tilt-card" — replace wrapper with <TiltCard maxTilt={7}> when C3 is provided
     <div className="relative w-full max-w-2xl mx-auto">
       <div
         className="rounded-2xl overflow-hidden shadow-2xl"
@@ -66,9 +63,12 @@ export function DigestPreviewCard() {
             >
               CROWE INTELLIGENCE
             </span>
-            <span className="text-xs" style={{ color: '#828282' }}>
-              {date}
-            </span>
+            <div className="flex items-center gap-3">
+              <AnimatedStatusBadge trigger={true} />
+              <span className="text-xs" style={{ color: '#828282' }}>
+                {date}
+              </span>
+            </div>
           </div>
           <div style={{ height: 1, background: '#F5A800', marginTop: 10, opacity: 0.6 }} />
           <p className="text-sm mt-2" style={{ color: '#E0E0E0' }}>

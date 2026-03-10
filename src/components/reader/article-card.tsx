@@ -2,8 +2,7 @@
 
 import { motion } from 'framer-motion';
 import type { DigestArticle } from '@/app/api/reader/route';
-
-// TODO: replace with <ScrollReveal delay={index * 60}> when C4 is provided
+import { ScrollReveal } from '@/components/ui/scroll-reveal';
 
 interface ArticleCardProps {
   article: DigestArticle;
@@ -30,10 +29,8 @@ async function sendFeedback(token: string | undefined, action: string, articleId
 
 export function ArticleCard({ article, index = 0, token, feedbackEnabled }: ArticleCardProps) {
   return (
+    <ScrollReveal delay={index * 60}>
     <motion.div
-      initial={{ opacity: 0, y: 16 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.24, delay: index * 0.06, ease: [0.25, 0.1, 0.25, 1] }}
       whileHover={{ scale: 1.008, boxShadow: '0 8px 32px rgba(1,30,65,0.1)' }}
       className="rounded-xl overflow-hidden"
       style={{
@@ -121,5 +118,6 @@ export function ArticleCard({ article, index = 0, token, feedbackEnabled }: Arti
         )}
       </div>
     </motion.div>
+    </ScrollReveal>
   );
 }

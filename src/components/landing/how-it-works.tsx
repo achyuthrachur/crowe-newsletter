@@ -1,8 +1,6 @@
 'use client';
 
-import { motion } from 'framer-motion';
-
-// TODO: replace whileInView fade with <ScrollReveal delay={index * 100}> when C4 is provided
+import { ScrollReveal } from '@/components/ui/scroll-reveal';
 
 const STEPS = [
   {
@@ -49,14 +47,7 @@ export function HowItWorks() {
           />
 
           {STEPS.map((step, i) => (
-            <motion.div
-              key={i}
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, margin: '-60px' }}
-              transition={{ duration: 0.28, delay: i * 0.1, ease: [0.25, 0.1, 0.25, 1] }}
-              className="flex flex-col items-center text-center space-y-4"
-            >
+            <ScrollReveal key={i} delay={i * 100} className="flex flex-col items-center text-center space-y-4">
               <div
                 className="w-16 h-16 rounded-full flex items-center justify-center text-xl font-bold relative z-10"
                 style={{ background: '#011E41', color: '#F5A800', fontFamily: 'var(--font-display)' }}
@@ -69,7 +60,7 @@ export function HowItWorks() {
               <p className="text-sm leading-relaxed" style={{ color: '#4F4F4F' }}>
                 {step.description}
               </p>
-            </motion.div>
+            </ScrollReveal>
           ))}
         </div>
       </div>
