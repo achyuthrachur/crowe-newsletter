@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
+import { AnimatedBg } from '@/components/ui/animated-bg';
 
 interface MastheadProps {
   date: string;
@@ -10,33 +10,62 @@ interface MastheadProps {
 
 export function Masthead({ date, greeting }: MastheadProps) {
   return (
-    <motion.div
-      initial={{ opacity: 0, y: -12 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.28, ease: [0.25, 0.1, 0.25, 1] }}
-      style={{ background: '#011E41' }}
-    >
-      <div className="max-w-5xl mx-auto px-6 py-6">
-        {/* Top rule */}
-        <div style={{ height: 2, background: '#F5A800', marginBottom: 14 }} />
+    <div className="relative overflow-hidden" style={{ background: '#011E41', isolation: 'isolate' }}>
+      {/* Animated dot-wave background */}
+      <AnimatedBg />
 
-        <div className="flex items-baseline justify-between mb-3">
-          <img src="/crowe-logo-white.svg" alt="Crowe" style={{ height: 28, width: 'auto' }} />
-          <span
-            className="text-xs font-medium uppercase tracking-wider"
-            style={{ color: '#828282' }}
+      <div className="relative z-10 max-w-4xl mx-auto px-6 py-10">
+        {/* Amber top rule */}
+        <motion.div
+          initial={{ scaleX: 0 }}
+          animate={{ scaleX: 1 }}
+          transition={{ duration: 0.5, ease: [0.25, 0.1, 0.25, 1] }}
+          style={{ height: 2, background: '#F5A800', marginBottom: 18, transformOrigin: 'left' }}
+        />
+
+        <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
+          <motion.div
+            initial={{ opacity: 0, x: -12 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.3, delay: 0.15 }}
           >
-            {date}
-          </span>
+            <img src="/crowe-logo-white.svg" alt="Crowe" style={{ height: 30, width: 'auto' }} />
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, x: 12 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.3, delay: 0.15 }}
+            className="flex flex-col items-end gap-1"
+          >
+            <span
+              className="text-[10px] font-bold tracking-[3px] uppercase"
+              style={{ color: 'rgba(245,168,0,0.6)', fontFamily: 'var(--font-display)' }}
+            >
+              Intelligence Briefing
+            </span>
+            <span
+              className="text-xs font-medium uppercase tracking-wider"
+              style={{ color: '#828282', fontFamily: 'var(--font-body)' }}
+            >
+              {date}
+            </span>
+          </motion.div>
         </div>
 
-        {/* Thin amber rule */}
-        <div style={{ height: 1, background: 'rgba(245,168,0,0.4)', marginBottom: 12 }} />
+        {/* Thin amber divider */}
+        <div style={{ height: 1, background: 'rgba(245,168,0,0.35)', marginBottom: 14 }} />
 
-        <p className="text-sm" style={{ color: '#BDBDBD' }}>
+        <motion.p
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, delay: 0.28 }}
+          className="text-base leading-relaxed"
+          style={{ color: '#BDBDBD', fontFamily: 'var(--font-body)', maxWidth: 560 }}
+        >
           {greeting}
-        </p>
+        </motion.p>
       </div>
-    </motion.div>
+    </div>
   );
 }
