@@ -4,9 +4,6 @@ import { hasTimeRemaining } from '@/lib/utils';
 import { sendDueEmails } from './sendDueEmails';
 import { collectSources } from './collectSources';
 import { buildDigests } from './buildDigests';
-import { runWebSearches } from './runWebSearches';
-import { scheduleDeepDives } from './scheduleDeepDives';
-import { advanceDeepDiveJobs } from './advanceDeepDiveJobs';
 import type { DailyTickResult } from '@/types';
 
 const MAX_DURATION = 55_000; // 55s hard limit (5s buffer for response)
@@ -78,6 +75,7 @@ export async function runDailyTick(): Promise<DailyTickResult> {
       flags.websearchEnabled &&
       hasTimeRemaining(startTime, MAX_DURATION, 15_000)
     ) {
+      const { runWebSearches } = await import('./runWebSearches');
       const searchResult = await runWebSearches({ maxDuration: 8_000 });
       result.webSearchQueries = searchResult.queriesRun;
       result.matchesCreated += searchResult.matchesCreated;
@@ -111,6 +109,11 @@ export async function runDailyTick(): Promise<DailyTickResult> {
       flags.deepResearchEnabled &&
       hasTimeRemaining(startTime, MAX_DURATION, 15_000)
     ) {
+      const [{ scheduleDeepDives }, { advanceDeepDiveJobs }] = await Promise.all([
+        import('./scheduleDeepDives'),
+        import('./advanceDeepDiveJobs'),
+      ]);
+
       // Schedule new jobs for users whose day matches
       const scheduled = await scheduleDeepDives();
       logDailyTick('schedule_deep_dives', { created: scheduled });

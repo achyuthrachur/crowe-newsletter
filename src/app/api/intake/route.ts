@@ -1,9 +1,12 @@
 import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/db';
 import { createTokenSet } from '@/lib/auth';
+import { ensureProfileCapsColumns } from '@/lib/db-compat';
 import { buildRrule, computeNextSend } from '@/lib/rrule';
 
 export async function POST(request: NextRequest) {
+  await ensureProfileCapsColumns();
+
   const body = await request.json();
 
   // Validate required fields

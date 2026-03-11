@@ -1,9 +1,12 @@
 import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/db';
 import { validateAuthToken } from '@/lib/auth';
+import { ensureProfileCapsColumns } from '@/lib/db-compat';
 import { parseRrule, buildRrule, computeNextSend } from '@/lib/rrule';
 
 export async function GET(request: NextRequest) {
+  await ensureProfileCapsColumns();
+
   const token = request.nextUrl.searchParams.get('token');
   if (!token) {
     return Response.json({ error: 'Token required' }, { status: 400 });
@@ -124,6 +127,8 @@ export async function GET(request: NextRequest) {
 }
 
 export async function PUT(request: NextRequest) {
+  await ensureProfileCapsColumns();
+
   const token = request.nextUrl.searchParams.get('token');
   if (!token) {
     return Response.json({ error: 'Token required' }, { status: 400 });
