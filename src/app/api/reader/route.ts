@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/db';
-import { validateAuthToken } from '@/lib/auth';
+import { createAuthToken, validateAuthToken } from '@/lib/auth';
+import { buildEmailUrls } from '@/lib/tokens';
 
 export interface DigestArticle {
   id: string;
@@ -25,6 +26,12 @@ export interface DigestData {
   articleCount: number;
   feedbackEnabled: boolean;
   prefsToken?: string;
+  links: {
+    prefsUrl: string;
+    pauseUrl: string;
+    unsubscribeUrl: string;
+    readerUrl: string;
+  };
 }
 
 export async function GET(request: NextRequest) {
@@ -119,6 +126,15 @@ export async function GET(request: NextRequest) {
   const articleCount = sections.reduce((s, sec) => s + sec.articles.length, 0);
 
   const feedbackEnabled = process.env.NEXT_PUBLIC_FEEDBACK_ENABLED === 'true';
+  const [pauseToken, unsubscribeToken] = await Promise.all([
+    createAuthToken(userId, 'pause'),
+    createAuthToken(userId, 'unsubscribe'),
+  ]);
+  const links = buildEmailUrls(request.nextUrl.origin, {
+    prefs: token,
+    pause: pauseToken,
+    unsubscribe: unsubscribeToken,
+  });
 
   return Response.json({
     id: digest.id,
@@ -132,5 +148,11 @@ export async function GET(request: NextRequest) {
     sections,
     articleCount,
     feedbackEnabled,
+    links: {
+      prefsUrl: links.prefsUrl,
+      pauseUrl: links.pauseUrl,
+      unsubscribeUrl: links.unsubscribeUrl,
+      readerUrl: links.readerUrl,
+    },
   } satisfies DigestData);
 }

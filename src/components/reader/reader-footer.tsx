@@ -3,10 +3,14 @@
 import { motion } from 'framer-motion';
 
 interface ReaderFooterProps {
-  token: string;
+  links: {
+    prefsUrl: string;
+    pauseUrl: string;
+    unsubscribeUrl: string;
+  };
 }
 
-export function ReaderFooter({ token }: ReaderFooterProps) {
+export function ReaderFooter({ links }: ReaderFooterProps) {
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -28,21 +32,21 @@ export function ReaderFooter({ token }: ReaderFooterProps) {
 
         <div className="flex justify-center gap-8 flex-wrap mb-6">
           <a
-            href={`/prefs?token=${token}`}
+            href={links.prefsUrl}
             className="text-sm font-semibold transition-opacity hover:opacity-75"
             style={{ color: '#F5A800' }}
           >
             Update preferences
           </a>
           <a
-            href={`/api/pause?token=${token}`}
+            href={links.pauseUrl}
             className="text-sm transition-opacity hover:opacity-75"
             style={{ color: '#BDBDBD' }}
           >
             Pause emails
           </a>
           <a
-            href={`/api/unsubscribe?token=${token}`}
+            href={links.unsubscribeUrl}
             className="text-sm transition-opacity hover:opacity-75"
             style={{ color: '#BDBDBD' }}
           >

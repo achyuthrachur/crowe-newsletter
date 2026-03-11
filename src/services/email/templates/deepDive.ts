@@ -1,4 +1,5 @@
 import type { DeepDiveReportData, AuthTokenSet } from '@/types';
+import { buildEmailUrls } from '@/lib/tokens';
 
 /**
  * Render the deep dive email as inline-styled HTML.
@@ -13,9 +14,7 @@ export function renderDeepDiveEmail(
   subject: string,
   dateLabel: string
 ): string {
-  const prefsUrl = `${appHost}/prefs?token=${tokens.prefs}`;
-  const pauseUrl = `${appHost}/api/pause?token=${tokens.pause}`;
-  const unsubscribeUrl = `${appHost}/api/unsubscribe?token=${tokens.unsubscribe}`;
+  const { prefsUrl, pauseUrl, unsubscribeUrl } = buildEmailUrls(appHost, tokens);
 
   const bulletList = (items: string[]) =>
     items

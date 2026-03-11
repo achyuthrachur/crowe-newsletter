@@ -38,6 +38,7 @@ import { summarizeArticle } from '@/lib/summarization';
 import type { SummarizationInput } from '@/lib/summarization';
 import { renderDigestItemWithCluster } from '@/lib/email/cluster-section';
 import { renderCoverageNote } from '@/lib/email/coverage-note';
+import { createEmailTokens } from '@/lib/tokens';
 
 const prisma = new PrismaClient();
 
@@ -341,6 +342,7 @@ export async function POST(request: NextRequest) {
       sectionMap.set(section, list);
     }
 
+    const emailLinks = await createEmailTokens(userId);
     let html = buildEmailHeader(dateStr);
 
     for (const [section, items] of sectionMap) {
@@ -357,7 +359,7 @@ export async function POST(request: NextRequest) {
     }
 
     html += renderCoverageNote(webSearchUsed);
-    html += buildEmailFooter();
+    html += buildEmailFooter(emailLinks);
 
     // Build plain text version
     let text = `Your Briefing — ${dateStr}\n\n`;
@@ -429,17 +431,27 @@ function buildEmailHeader(dateStr: string): string {
 <table width="100%" cellpadding="0" cellspacing="0">`;
 }
 
-function buildEmailFooter(): string {
+function buildEmailFooter(links: {
+  prefsUrl: string;
+  pauseUrl: string;
+  unsubscribeUrl: string;
+  readerUrl: string;
+}): string {
   return `
 </table>
 </td></tr>
 <tr>
+  <td style="padding: 8px 32px 0; background-color: #F7F7F7; text-align: center; font-family: Arial, Helvetica, sans-serif; font-size: 12px;">
+    <a href="${escapeHtml(links.readerUrl)}" style="color: #828282; text-decoration: none;">View this briefing in your browser</a>
+  </td>
+</tr>
+<tr>
   <td style="padding: 24px 32px; background-color: #F7F7F7; text-align: center; font-family: Arial, Helvetica, sans-serif; font-size: 12px; color: #828282;">
-    <a href="{{PREFS_URL}}" style="color: #FDB913; text-decoration: underline;">Update preferences</a>
+    <a href="${escapeHtml(links.prefsUrl)}" style="color: #FDB913; text-decoration: underline;">Update preferences</a>
     &nbsp;&middot;&nbsp;
-    <a href="{{PAUSE_URL}}" style="color: #FDB913; text-decoration: underline;">Pause emails</a>
+    <a href="${escapeHtml(links.pauseUrl)}" style="color: #FDB913; text-decoration: underline;">Pause emails</a>
     &nbsp;&middot;&nbsp;
-    <a href="{{UNSUBSCRIBE_URL}}" style="color: #FDB913; text-decoration: underline;">Unsubscribe</a>
+    <a href="${escapeHtml(links.unsubscribeUrl)}" style="color: #FDB913; text-decoration: underline;">Unsubscribe</a>
   </td>
 </tr>
 </table>

@@ -93,6 +93,7 @@ export async function publishReport(jobId: string): Promise<void> {
 
   // Send email
   const user = job.user;
+  let emailSent = false;
   if (user.profile?.emailEnabled && !user.profile?.paused) {
     try {
       await sendEmail({
@@ -115,6 +116,7 @@ export async function publishReport(jobId: string): Promise<void> {
         stage: 'PUBLISH',
         status: 'sent',
       });
+      emailSent = true;
     } catch (error) {
       logDeepDive({
         jobId,
@@ -130,7 +132,7 @@ export async function publishReport(jobId: string): Promise<void> {
   const finalStatus = job.status === 'partial' ? 'partial' : 'complete';
   const finalState: DeepDiveState = {
     ...state,
-    publish: { reportId: report.id, emailSent: true },
+    publish: { reportId: report.id, emailSent },
   };
 
   await prisma.deepDiveJob.update({

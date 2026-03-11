@@ -126,7 +126,7 @@ function ReaderContent() {
           Intelligence Briefing
         </span>
         <a
-          href={`/prefs?token=${token}`}
+          href={data.links.prefsUrl}
           className="text-xs font-semibold px-3 py-1.5 rounded-lg transition-all hover:brightness-110"
           style={{ background: 'rgba(245,168,0,0.15)', color: '#F5A800', border: '1px solid rgba(245,168,0,0.3)' }}
         >
@@ -184,7 +184,7 @@ function ReaderContent() {
         </AnimatePresence>
       </main>
 
-      <ReaderFooter token={token} />
+      <ReaderFooter links={data.links} />
     </div>
   );
 }

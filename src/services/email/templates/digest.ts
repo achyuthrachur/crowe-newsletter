@@ -1,5 +1,6 @@
 import type { AuthTokenSet, DigestData } from '@/types';
 import { flags } from '@/lib/flags';
+import { buildEmailUrls } from '@/lib/tokens';
 
 /**
  * Render the daily digest email as inline-styled HTML.
@@ -13,10 +14,7 @@ export function renderDigestEmail(
   subject: string,
   greeting?: string
 ): string {
-  const prefsUrl = `${appHost}/prefs?token=${tokens.prefs}`;
-  const pauseUrl = `${appHost}/api/pause?token=${tokens.pause}`;
-  const unsubscribeUrl = `${appHost}/api/unsubscribe?token=${tokens.unsubscribe}`;
-  const readerUrl = `${appHost}/reader?token=${tokens.prefs}`;
+  const { prefsUrl, pauseUrl, unsubscribeUrl, readerUrl } = buildEmailUrls(appHost, tokens);
 
   const greetingLine = digest.greeting ?? greeting ?? '';
   const allArticles = digest.sections.flatMap((s) => s.articles);

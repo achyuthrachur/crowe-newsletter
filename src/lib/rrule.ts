@@ -33,7 +33,8 @@ export function parseRrule(rrule: string): { days: string[]; hour: number; minut
  * Build an RFC 5545 RRULE string from days/hour/minute.
  */
 export function buildRrule(days: string[], hour: number, minute: number): string {
-  return `FREQ=WEEKLY;BYDAY=${days.join(',')};BYHOUR=${hour};BYMINUTE=${minute};BYSECOND=0`;
+  const normalizedDays = days.map((day) => day.toUpperCase());
+  return `FREQ=WEEKLY;BYDAY=${normalizedDays.join(',')};BYHOUR=${hour};BYMINUTE=${minute};BYSECOND=0`;
 }
 
 /**
@@ -79,4 +80,12 @@ export function computeNextSend(days: string[], hour: number, minute: number): D
 export function computeNextSendFromRrule(rrule: string): Date {
   const { days, hour, minute } = parseRrule(rrule);
   return computeNextSend(days, hour, minute);
+}
+
+// Backward-compatible exports used by existing tests and routes.
+export const buildRRule = buildRrule;
+export const parseScheduleFromRRule = parseRrule;
+
+export function computeNextSendAt(rrule: string, _timezone?: string): Date {
+  return computeNextSendFromRrule(rrule);
 }

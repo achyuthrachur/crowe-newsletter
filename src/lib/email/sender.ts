@@ -1,5 +1,6 @@
 import { Resend } from 'resend';
 import { prisma } from '../db';
+import { assertResendSuccess, getResendErrorMessage } from './resend';
 
 function getResend() {
   return new Resend(process.env.RESEND_API_KEY);
@@ -18,13 +19,15 @@ export async function sendDigestEmail(options: SendEmailOptions): Promise<boolea
   const from = process.env.EMAIL_FROM || 'Your Briefing <briefing@yourdomain.com>';
 
   try {
-    await getResend().emails.send({
+    const response = await getResend().emails.send({
       from,
       to: options.to,
       subject: options.subject,
       html: options.html,
       text: options.text,
     });
+
+    assertResendSuccess(response, `send digest email to ${options.to}`);
 
     await prisma.emailEvent.create({
       data: {
@@ -36,9 +39,12 @@ export async function sendDigestEmail(options: SendEmailOptions): Promise<boolea
 
     return true;
   } catch (err) {
+    const message =
+      err instanceof Error ? err.message : getResendErrorMessage(null);
+
     console.error(
       `Failed to send email to ${options.to}:`,
-      err instanceof Error ? err.message : err
+      message
     );
 
     await prisma.emailEvent.create({
@@ -46,7 +52,7 @@ export async function sendDigestEmail(options: SendEmailOptions): Promise<boolea
         userId: options.userId,
         digestId: options.digestId,
         type: 'bounced',
-        payload: { error: err instanceof Error ? err.message : String(err) },
+        payload: { error: message },
       },
     });
 
